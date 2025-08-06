@@ -9,12 +9,24 @@ import SwiftUI
 
 @main
 struct ReflectiveApp: App {
-    let persistenceController = PersistenceController.shared
+    let coreDataStack = CoreDataStack.shared
+    @StateObject private var authViewModel = AuthViewModel()
 
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environment(\.managedObjectContext, persistenceController.container.viewContext)
+                .environment(\.managedObjectContext, coreDataStack.container.viewContext)
+                .environmentObject(authViewModel)
+        }
+        .windowStyle(.titleBar)
+        .windowResizability(.contentSize)
+        .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Preferences...") {
+                    // Will be implemented in later phases
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
         }
     }
 }

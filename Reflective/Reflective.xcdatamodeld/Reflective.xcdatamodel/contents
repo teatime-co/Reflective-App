@@ -1,9 +1,77 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="1" systemVersion="11A491" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithCloudKit="false" userDefinedModelVersionIdentifier="">
-    <entity name="Item" representedClassName="Item" syncable="YES" codeGenerationType="class">
-        <attribute name="timestamp" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+    <entity name="CDUser" representedClassName="CDUser" syncable="YES" codeGenerationType="class">
+        <attribute name="id" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="email" attributeType="String"/>
+        <attribute name="displayName" optional="YES" attributeType="String"/>
+        <attribute name="timezone" attributeType="String" defaultValueString="UTC"/>
+        <attribute name="locale" attributeType="String" defaultValueString="en_US"/>
+        <attribute name="dailyWordGoal" attributeType="Integer 32" defaultValueString="500" usesScalarValueType="YES"/>
+        <attribute name="writingReminderTime" optional="YES" attributeType="String"/>
+        <attribute name="themePreferences" optional="YES" attributeType="Binary"/>
+        <attribute name="aiFeaturesEnabled" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="lastSyncDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="isOfflineMode" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <relationship name="journalEntries" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="CDLog" inverseName="user" inverseEntity="CDLog"/>
+        <relationship name="writingSessions" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="CDSession" inverseName="user" inverseEntity="CDSession"/>
+        <relationship name="tags" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="CDTag" inverseName="user" inverseEntity="CDTag"/>
+    </entity>
+    <entity name="CDLog" representedClassName="CDLog" syncable="YES" codeGenerationType="class">
+        <attribute name="id" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="userID" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="sessionID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="promptID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="weaviateID" optional="YES" attributeType="String"/>
+        <attribute name="content" attributeType="String"/>
+        <attribute name="moodScore" attributeType="Float" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="completionStatus" attributeType="String" defaultValueString="draft"/>
+        <attribute name="targetWordCount" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="writingDuration" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="wordCount" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="processingStatus" optional="YES" attributeType="String"/>
+        <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="lastSyncDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="needsSync" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <relationship name="user" maxCount="1" deletionRule="Nullify" destinationEntity="CDUser" inverseName="journalEntries" inverseEntity="CDUser"/>
+        <relationship name="session" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="CDSession" inverseName="logs" inverseEntity="CDSession"/>
+        <relationship name="tags" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="CDTag" inverseName="logs" inverseEntity="CDTag"/>
+    </entity>
+    <entity name="CDTag" representedClassName="CDTag" syncable="YES" codeGenerationType="class">
+        <attribute name="id" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="userID" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="name" attributeType="String"/>
+        <attribute name="color" optional="YES" attributeType="String"/>
+        <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="lastSyncDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="needsSync" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <relationship name="user" maxCount="1" deletionRule="Nullify" destinationEntity="CDUser" inverseName="tags" inverseEntity="CDUser"/>
+        <relationship name="logs" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="CDLog" inverseName="tags" inverseEntity="CDLog"/>
+    </entity>
+    <entity name="CDSession" representedClassName="CDSession" syncable="YES" codeGenerationType="class">
+        <attribute name="id" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="userID" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="sessionType" attributeType="String" defaultValueString="freeform"/>
+        <attribute name="startTime" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="endTime" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="targetDuration" optional="YES" attributeType="Integer 32" usesScalarValueType="YES"/>
+        <attribute name="totalFocusTime" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="interruptionCount" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="completionStatus" attributeType="String" defaultValueString="in_progress"/>
+        <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="lastSyncDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="needsSync" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <relationship name="user" maxCount="1" deletionRule="Nullify" destinationEntity="CDUser" inverseName="writingSessions" inverseEntity="CDUser"/>
+        <relationship name="logs" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="CDLog" inverseName="session" inverseEntity="CDLog"/>
     </entity>
     <elements>
-        <element name="Item" positionX="-63" positionY="-18" width="128" height="44"/>
+        <element name="CDUser" positionX="-63" positionY="-18" width="128" height="299"/>
+        <element name="CDLog" positionX="144" positionY="-18" width="128" height="329"/>
+        <element name="CDTag" positionX="351" positionY="-18" width="128" height="179"/>
+        <element name="CDSession" positionX="-63" positionY="234" width="128" height="254"/>
     </elements>
 </model>

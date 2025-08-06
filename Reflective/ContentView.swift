@@ -9,75 +9,146 @@ import SwiftUI
 import CoreData
 
 struct ContentView: View {
-    @Environment(\.managedObjectContext) private var viewContext
-
-    @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)],
-        animation: .default)
-    private var items: FetchedResults<Item>
+    @Environment(\.managedObjectContext) private var viewContext: NSManagedObjectContext
+    @EnvironmentObject var authViewModel: AuthViewModel
 
     var body: some View {
-        NavigationView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp!, formatter: itemFormatter)")
-                    } label: {
-                        Text(item.timestamp!, formatter: itemFormatter)
-                    }
-                }
-                .onDelete(perform: deleteItems)
-            }
-            .toolbar {
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
-                    }
-                }
-            }
-            Text("Select an item")
-        }
-    }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(context: viewContext)
-            newItem.timestamp = Date()
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+        Group {
+            switch authViewModel.authState {
+            case .idle, .loading:
+                LoadingView()
+            case .unauthenticated, .error:
+                LoginView()
+            case .authenticated(let user):
+                MainAppView(user: user)
             }
         }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            offsets.map { items[$0] }.forEach(viewContext.delete)
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
-        }
+        .frame(minWidth: AppConfig.Constants.minWindowWidth, 
+               minHeight: AppConfig.Constants.minWindowHeight)
     }
 }
 
-private let itemFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.dateStyle = .short
-    formatter.timeStyle = .medium
-    return formatter
-}()
+struct LoadingView: View {
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "book.pages")
+                .font(.system(size: 60))
+                .foregroundColor(.blue)
+            
+            Text("Reflective")
+                .font(.system(size: 24, weight: .light, design: .serif))
+                .foregroundColor(.primary)
+            
+            ProgressView()
+                .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                .scaleEffect(1.2)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.windowBackgroundColor))
+    }
+}
+
+struct MainAppView: View {
+    let user: User
+    @EnvironmentObject var authViewModel: AuthViewModel
+    
+    var body: some View {
+        NavigationSplitView {
+            SidebarView()
+        } detail: {
+            // Main content area - placeholder for now
+            VStack {
+                Text("Welcome, \(user.displayName ?? user.email)!")
+                    .font(.title)
+                    .padding()
+                
+                Text("This is where the main journaling interface will be.")
+                    .foregroundColor(.secondary)
+                    .padding()
+                
+                Button("Logout") {
+                    authViewModel.logout()
+                }
+                .buttonStyle(.bordered)
+                .padding()
+                
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(.controlBackgroundColor))
+            .navigationTitle("Journal")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button(action: {
+                        // New entry action - will be implemented in Phase 2
+                    }) {
+                        Image(systemName: "plus")
+                    }
+                    .help("New Entry")
+                }
+            }
+        }
+        .navigationSplitViewStyle(.balanced)
+    }
+}
+
+struct SidebarView: View {
+    @EnvironmentObject var authViewModel: AuthViewModel
+    
+    var body: some View {
+        List {
+            Section("Journal") {
+                NavigationLink(destination: Text("Entries View")) {
+                    Label("Entries", systemImage: "doc.text")
+                }
+                
+                NavigationLink(destination: Text("New Entry View")) {
+                    Label("New Entry", systemImage: "plus.circle")
+                }
+            }
+            
+            Section("Organize") {
+                NavigationLink(destination: Text("Tags View")) {
+                    Label("Tags", systemImage: "tag")
+                }
+                
+                NavigationLink(destination: Text("Search View")) {
+                    Label("Search", systemImage: "magnifyingglass")
+                }
+            }
+            
+            Section("Insights") {
+                NavigationLink(destination: Text("Analytics View")) {
+                    Label("Analytics", systemImage: "chart.line.uptrend.xyaxis")
+                }
+                
+                NavigationLink(destination: Text("Themes View")) {
+                    Label("Themes", systemImage: "brain.head.profile")
+                }
+            }
+            
+            Section("Settings") {
+                NavigationLink(destination: Text("Preferences View")) {
+                    Label("Preferences", systemImage: "gear")
+                }
+                
+                Button(action: {
+                    authViewModel.logout()
+                }) {
+                    Label("Logout", systemImage: "rectangle.portrait.and.arrow.right")
+                        .foregroundColor(.red)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .listStyle(.sidebar)
+        .frame(minWidth: AppConfig.Constants.sidebarWidth)
+        .navigationTitle("Reflective")
+    }
+}
 
 #Preview {
-    ContentView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+    ContentView()
+        .environment(\.managedObjectContext, CoreDataStack.preview.container.viewContext)
+        .environmentObject(AuthViewModel())
 }
