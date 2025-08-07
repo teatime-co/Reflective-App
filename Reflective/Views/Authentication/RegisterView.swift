@@ -31,11 +31,13 @@ struct RegisterView: View {
                 
                 Spacer()
                 
-                Button("Cancel") {
-                    dismiss()
+                Button(action: { dismiss() }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.secondary)
                 }
                 .buttonStyle(.plain)
-                .foregroundColor(.secondary)
+                .frame(width: 24, height: 24)
             }
             .padding()
             .background(Color(.controlBackgroundColor))
@@ -161,7 +163,7 @@ struct RegisterView: View {
                             }
                         }
                     }
-                    .frame(maxWidth: 320)
+                    .frame(maxWidth: 400)
                     
                     // Register button
                     Button(action: register) {
@@ -184,20 +186,9 @@ struct RegisterView: View {
                     .buttonStyle(.plain)
                     .disabled(!canRegister)
                     .opacity(canRegister ? 1.0 : 0.6)
-                    .frame(maxWidth: 320)
+                    .frame(maxWidth: 400)
                     
-                    // Login link
-                    HStack {
-                        Text("Already have an account?")
-                            .foregroundColor(.secondary)
-                        
-                        Button("Sign In") {
-                            dismiss()
-                        }
-                        .foregroundColor(.accentColor)
-                    }
-                    .font(.subheadline)
-                    .padding(.bottom, 32)
+                    Spacer(minLength: 32)
                 }
                 .padding(.horizontal, 40)
             }

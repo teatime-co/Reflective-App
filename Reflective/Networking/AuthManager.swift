@@ -27,6 +27,7 @@ class AuthManager: ObservableObject {
     private func loadSavedTokens() {
         guard let accessToken = keychain.getAccessToken(),
               let refreshToken = keychain.getRefreshToken() else {
+            print("🔍 [macOS] No saved tokens found")
             return
         }
         
@@ -38,11 +39,20 @@ class AuthManager: ObservableObject {
         )
         
         self.currentToken = token
+        
+        // Check if token is expired immediately
+        if token.isExpired {
+            print("⚠️ [macOS] Saved token is expired, clearing credentials")
+            clearCredentials()
+            return
+        }
+        
         self.isAuthenticated = true
+        print("✅ [macOS] Loaded saved authentication token")
         
         // Check if token needs refresh
         if token.isExpiringSoon {
-            refreshTokenIfNeeded()
+            print("🔄 [macOS] Token expiring soon, will refresh when needed")
         }
     }
     
@@ -96,10 +106,11 @@ class AuthManager: ObservableObject {
         )
     }
     
-    func clearTokens() {
+    func clearCredentials() {
         self.currentToken = nil
         self.isAuthenticated = false
         keychain.clearTokens()
+        UserDefaults.standard.removeObject(forKey: "shouldStayLoggedIn")
     }
     
     // MARK: - Token Refresh
@@ -108,8 +119,15 @@ class AuthManager: ObservableObject {
               token.isExpiringSoon,
               !token.isExpired else {
             if currentToken?.isExpired == true {
-                clearTokens()
+                print("🔄 [macOS] Token expired, clearing credentials")
+                clearCredentials()
             }
+            return
+        }
+        
+        // Check if we have a refresh token (our OAuth2 flow doesn't provide one)
+        if token.refreshToken.isEmpty {
+            print("⚠️ [macOS] No refresh token available, user will need to login again when token expires")
             return
         }
         
@@ -118,6 +136,14 @@ class AuthManager: ObservableObject {
     
     func refreshToken() -> AnyPublisher<Void, APIError> {
         guard let currentToken = currentToken else {
+            return Fail(error: APIError.unauthorized)
+                .eraseToAnyPublisher()
+        }
+        
+        // Check if we actually have a refresh token
+        guard !currentToken.refreshToken.isEmpty else {
+            print("❌ [macOS] Cannot refresh token: No refresh token available")
+            clearCredentials()
             return Fail(error: APIError.unauthorized)
                 .eraseToAnyPublisher()
         }
@@ -135,7 +161,8 @@ class AuthManager: ObservableObject {
         }
         .catch { error -> AnyPublisher<Void, APIError> in
             // If refresh fails, clear tokens
-            self.clearTokens()
+            print("❌ [macOS] Token refresh failed: \(error)")
+            self.clearCredentials()
             return Fail(error: error)
                 .eraseToAnyPublisher()
         }
@@ -143,7 +170,11 @@ class AuthManager: ObservableObject {
     }
     
     // MARK: - Authentication Methods
-    func login(email: String, password: String) -> AnyPublisher<User, APIError> {
+    func login(
+        email: String,
+        password: String,
+        shouldStayLoggedIn: Bool = false
+    ) -> AnyPublisher<User, APIError> {
         print("🔐 AuthManager: Starting OAuth2 login for \(email)")
         return apiClient.oauth2Login(
             endpoint: AppConfig.API.Endpoints.login,
@@ -166,6 +197,9 @@ class AuthManager: ObservableObject {
                 accessToken: tokenResponse.accessToken,
                 refreshToken: ""
             )
+            
+            // Save the shouldStayLoggedIn preference
+            UserDefaults.standard.set(shouldStayLoggedIn, forKey: "shouldStayLoggedIn")
             
             // Now fetch the user profile
             return self.apiClient.get(endpoint: AppConfig.API.Endpoints.userProfile)
@@ -217,12 +251,12 @@ class AuthManager: ObservableObject {
             requiresAuth: true
         )
         .map { (_: [String: String]) in
-            self.clearTokens()
+            self.clearCredentials()
             return ()
         }
         .catch { _ in
             // Even if logout request fails, clear local tokens
-            self.clearTokens()
+            self.clearCredentials()
             return Just(())
                 .setFailureType(to: APIError.self)
                 .eraseToAnyPublisher()
@@ -231,6 +265,40 @@ class AuthManager: ObservableObject {
     }
     
     // MARK: - Token Validation
+    
+    /// Ensures we have a valid token before making authenticated requests (macOS)
+    func ensureValidToken() async throws -> String {
+        // If no token exists, user needs to login
+        guard let token = currentToken else {
+            print("❌ [macOS] No token available - user needs to login")
+            throw APIError.unauthorized
+        }
+        
+        // If token is expired, clear credentials and require login
+        if token.isExpired {
+            print("❌ [macOS] Token expired - clearing credentials")
+            clearCredentials()
+            throw APIError.unauthorized
+        }
+        
+        // If token is expiring soon and we have a refresh token, try to refresh
+        if token.isExpiringSoon && !token.refreshToken.isEmpty {
+            print("🔄 [macOS] Token expiring soon, attempting refresh...")
+            do {
+                _ = try await refreshToken().async()
+                return currentToken?.accessToken ?? ""
+            } catch {
+                print("❌ [macOS] Token refresh failed: \(error)")
+                clearCredentials()
+                throw APIError.unauthorized
+            }
+        }
+        
+        // Token is valid, return it
+        print("✅ [macOS] Token is valid")
+        return token.accessToken
+    }
+    
     var isTokenValid: Bool {
         guard let token = currentToken else { return false }
         return !token.isExpired
@@ -261,5 +329,30 @@ class AuthManager: ObservableObject {
         return Just(token.accessToken)
             .setFailureType(to: APIError.self)
             .eraseToAnyPublisher()
+    }
+}
+
+// MARK: - Async/Await Support for macOS
+extension AnyPublisher {
+    func async() async throws -> Output {
+        try await withCheckedThrowingContinuation { continuation in
+            var cancellable: AnyCancellable?
+            cancellable = self
+                .sink(
+                    receiveCompletion: { completion in
+                        switch completion {
+                        case .finished:
+                            break
+                        case .failure(let error):
+                            continuation.resume(throwing: error)
+                        }
+                        cancellable?.cancel()
+                    },
+                    receiveValue: { value in
+                        continuation.resume(returning: value)
+                        cancellable?.cancel()
+                    }
+                )
+        }
     }
 } 

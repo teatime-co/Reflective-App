@@ -11,6 +11,8 @@ import CoreData
 struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext: NSManagedObjectContext
     @EnvironmentObject var authViewModel: AuthViewModel
+    @StateObject private var journalService = JournalService.shared
+    @StateObject private var tagService = TagService.shared
 
     var body: some View {
         Group {
@@ -21,6 +23,8 @@ struct ContentView: View {
                 LoginView()
             case .authenticated(let user):
                 MainAppView(user: user)
+                    .environmentObject(journalService)
+                    .environmentObject(tagService)
             }
         }
         .frame(minWidth: AppConfig.Constants.minWindowWidth, 
@@ -50,87 +54,97 @@ struct LoadingView: View {
 
 struct MainAppView: View {
     let user: User
-    @EnvironmentObject var authViewModel: AuthViewModel
+    @EnvironmentObject var journalService: JournalService
+    @EnvironmentObject var tagService: TagService
+    @StateObject private var navigationManager = NavigationManager.shared
     
     var body: some View {
         NavigationSplitView {
             SidebarView()
+                .environmentObject(navigationManager)
         } detail: {
-            // Main content area - placeholder for now
-            VStack {
-                Text("Welcome, \(user.displayName ?? user.email)!")
-                    .font(.title)
-                    .padding()
-                
-                Text("This is where the main journaling interface will be.")
-                    .foregroundColor(.secondary)
-                    .padding()
-                
-                Button("Logout") {
-                    authViewModel.logout()
-                }
-                .buttonStyle(.bordered)
-                .padding()
-                
-                Spacer()
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(.controlBackgroundColor))
-            .navigationTitle("Journal")
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button(action: {
-                        // New entry action - will be implemented in Phase 2
-                    }) {
-                        Image(systemName: "plus")
-                    }
-                    .help("New Entry")
-                }
-            }
+            // Detail view based on selected destination
+            destinationView
         }
         .navigationSplitViewStyle(.balanced)
+    }
+    
+    @ViewBuilder
+    private var destinationView: some View {
+        switch navigationManager.selectedDestination {
+        case .entries:
+            EntryListView()
+                .environmentObject(navigationManager)
+        case .editor(let mode):
+            EntryEditorView(mode: mode)
+                .environmentObject(navigationManager)
+        case .tags:
+            Text("Tags Management View - Coming Soon")
+        case .search:
+            Text("Search View - Coming Soon")
+        case .analytics:
+            Text("Analytics View - Coming Soon")
+        case .themes:
+            Text("Themes View - Coming Soon")
+        }
     }
 }
 
 struct SidebarView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
-    
+    @EnvironmentObject var navigationManager: NavigationManager
+
     var body: some View {
-        List {
+        List(selection: .constant(navigationManager.selectedDestination)) {
             Section("Journal") {
-                NavigationLink(destination: Text("Entries View")) {
-                    Label("Entries", systemImage: "doc.text")
-                }
+                SidebarNavigationItem(
+                    destination: .entries,
+                    label: "Entries",
+                    systemImage: "doc.text"
+                )
                 
-                NavigationLink(destination: Text("New Entry View")) {
-                    Label("New Entry", systemImage: "plus.circle")
-                }
+                SidebarNavigationItem(
+                    destination: .editor(mode: .create),
+                    label: "Editor",
+                    systemImage: "pencil"
+                )
             }
             
             Section("Organize") {
-                NavigationLink(destination: Text("Tags View")) {
-                    Label("Tags", systemImage: "tag")
-                }
+                SidebarNavigationItem(
+                    destination: .tags,
+                    label: "Tags",
+                    systemImage: "tag"
+                )
                 
-                NavigationLink(destination: Text("Search View")) {
-                    Label("Search", systemImage: "magnifyingglass")
-                }
+                SidebarNavigationItem(
+                    destination: .search,
+                    label: "Search",
+                    systemImage: "magnifyingglass"
+                )
             }
             
             Section("Insights") {
-                NavigationLink(destination: Text("Analytics View")) {
-                    Label("Analytics", systemImage: "chart.line.uptrend.xyaxis")
-                }
+                SidebarNavigationItem(
+                    destination: .analytics,
+                    label: "Analytics",
+                    systemImage: "chart.line.uptrend.xyaxis"
+                )
                 
-                NavigationLink(destination: Text("Themes View")) {
-                    Label("Themes", systemImage: "brain.head.profile")
-                }
+                SidebarNavigationItem(
+                    destination: .themes,
+                    label: "Themes",
+                    systemImage: "brain.head.profile"
+                )
             }
             
             Section("Settings") {
-                NavigationLink(destination: Text("Preferences View")) {
+                Button(action: {
+                    // Will be implemented in later phases
+                }) {
                     Label("Preferences", systemImage: "gear")
                 }
+                .buttonStyle(.plain)
                 
                 Button(action: {
                     authViewModel.logout()
@@ -144,6 +158,40 @@ struct SidebarView: View {
         .listStyle(.sidebar)
         .frame(minWidth: AppConfig.Constants.sidebarWidth)
         .navigationTitle("Reflective")
+    }
+}
+
+struct SidebarNavigationItem: View {
+    let destination: NavigationDestination
+    let label: String
+    let systemImage: String
+    
+    @EnvironmentObject var navigationManager: NavigationManager
+    
+    var isSelected: Bool {
+        switch (navigationManager.selectedDestination, destination) {
+        case (.entries, .entries), (.tags, .tags), (.search, .search), (.analytics, .analytics), (.themes, .themes):
+            return true
+        case (.editor, .editor):
+            return true
+        default:
+            return false
+        }
+    }
+    
+    var body: some View {
+        Button(action: {
+            navigationManager.attemptNavigation(to: destination)
+        }) {
+            HStack {
+                Label(label, systemImage: systemImage)
+                    .foregroundColor(isSelected ? .accentColor : .primary)
+                Spacer()
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .listRowBackground(isSelected ? Color.accentColor.opacity(0.1) : Color.clear)
     }
 }
 

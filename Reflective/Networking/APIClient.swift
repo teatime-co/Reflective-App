@@ -27,7 +27,6 @@ class APIClient: ObservableObject {
         
         // macOS-specific networking configuration
         config.waitsForConnectivity = true
-        config.allowsCellularAccess = false // macOS doesn't use cellular
         config.allowsConstrainedNetworkAccess = true // Allow on macOS
         config.allowsExpensiveNetworkAccess = true // Allow on macOS
         
@@ -106,57 +105,102 @@ class APIClient: ObservableObject {
                 .eraseToAnyPublisher()
         }
         
-        var request = URLRequest(url: url)
-        request.httpMethod = method.rawValue
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        // Add authentication header if required
-        if requiresAuth {
-            if let token = Keychain.shared.getAccessToken() {
-                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            } else {
-                return Fail(error: APIError.unauthorized)
-                    .eraseToAnyPublisher()
-            }
-        }
-        
-        // Add request body if provided
-        if let body = body {
-            do {
-                request.httpBody = try jsonEncoder.encode(body)
-            } catch {
-                return Fail(error: APIError.encodingError(error))
-                    .eraseToAnyPublisher()
-            }
-        }
-        
-        if AppEnvironment.current.enableLogging {
-            print("🌐 API Request: \(method.rawValue) \(url)")
-            if let bodyData = request.httpBody,
-               let bodyString = String(data: bodyData, encoding: .utf8) {
-                print("📤 Request Body: \(bodyString)")
-            }
-        }
-        
-        return session.dataTaskPublisher(for: request)
-            .handleEvents(receiveOutput: { data, response in
-                if AppEnvironment.current.enableLogging {
-                    print("📥 API Response: \(response)")
-                    if let responseString = String(data: data, encoding: .utf8) {
-                        print("📥 Response Data: \(responseString)")
+        // Create request preparation publisher
+        let requestPreparation = Future<URLRequest, APIError> { promise in
+            Task {
+                do {
+                    var request = URLRequest(url: url)
+                    request.httpMethod = method.rawValue
+                    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                    
+                    // Add authentication header if required
+                    if requiresAuth {
+                        // Use AuthManager to ensure we have a valid token
+                        let validToken = try await AuthManager.shared.ensureValidToken()
+                        request.setValue("Bearer \(validToken)", forHTTPHeaderField: "Authorization")
+                    }
+                    
+                    // Add request body if provided
+                    if let body = body {
+                        do {
+                            request.httpBody = try self.jsonEncoder.encode(body)
+                        } catch {
+                            promise(.failure(APIError.encodingError(error)))
+                            return
+                        }
+                    }
+                    
+                    promise(.success(request))
+                } catch {
+                    if let apiError = error as? APIError {
+                        promise(.failure(apiError))
+                    } else {
+                        promise(.failure(APIError.unknown(error)))
                     }
                 }
-            })
-            .map(\.data)
-            .decode(type: T.self, decoder: jsonDecoder)
-            .mapError { error in
-                if let decodingError = error as? DecodingError {
-                    return APIError.decodingError(decodingError)
-                } else if let urlError = error as? URLError {
-                    return APIError.networkError(urlError)
-                } else {
-                    return APIError.unknown(error)
+            }
+        }
+        
+        return requestPreparation
+            .flatMap { request in
+                if AppEnvironment.current.enableLogging {
+                    print("🌐 API Request: \(method.rawValue) \(url)")
+                    if let bodyData = request.httpBody,
+                       let bodyString = String(data: bodyData, encoding: .utf8) {
+                        print("📤 Request Body: \(bodyString)")
+                    }
                 }
+                
+                return self.session.dataTaskPublisher(for: request)
+                    .handleEvents(receiveOutput: { data, response in
+                        if AppEnvironment.current.enableLogging {
+                            print("📥 API Response: \(response)")
+                            if let responseString = String(data: data, encoding: .utf8) {
+                                print("📥 Response Data: \(responseString)")
+                            }
+                        }
+                    })
+                    .tryMap { data, response in
+                        // Check for HTTP errors
+                        if let httpResponse = response as? HTTPURLResponse {
+                            switch httpResponse.statusCode {
+                            case 401:
+                                throw APIError.unauthorized
+                            case 400..<500:
+                                // Try to parse error message from response
+                                if let errorMessage = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                                   let detail = errorMessage["detail"] as? String {
+                                    throw APIError.serverError(httpResponse.statusCode, detail)
+                                } else {
+                                    throw APIError.serverError(httpResponse.statusCode, "Client error")
+                                }
+                            case 500..<600:
+                                // Try to parse error message from response
+                                if let errorMessage = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                                   let detail = errorMessage["detail"] as? String {
+                                    throw APIError.serverError(httpResponse.statusCode, detail)
+                                } else {
+                                    throw APIError.serverError(httpResponse.statusCode, "Server error")
+                                }
+                            default:
+                                break
+                            }
+                        }
+                        return data
+                    }
+                    .decode(type: T.self, decoder: self.jsonDecoder)
+                    .mapError { error in
+                        if let apiError = error as? APIError {
+                            return apiError
+                        } else if let decodingError = error as? DecodingError {
+                            return APIError.decodingError(decodingError)
+                        } else if let urlError = error as? URLError {
+                            return APIError.networkError(urlError)
+                        } else {
+                            return APIError.unknown(error)
+                        }
+                    }
+                    .eraseToAnyPublisher()
             }
             .eraseToAnyPublisher()
     }
@@ -211,6 +255,17 @@ enum APIError: Error, LocalizedError {
     case encodingError(Error)
     case serverError(Int, String?)
     case unknown(Error)
+    
+    var isUnauthorized: Bool {
+        switch self {
+        case .unauthorized:
+            return true
+        case .serverError(let code, _):
+            return code == 401
+        default:
+            return false
+        }
+    }
     
     var errorDescription: String? {
         switch self {

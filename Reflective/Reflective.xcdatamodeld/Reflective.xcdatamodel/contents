@@ -46,6 +46,7 @@
         <attribute name="color" optional="YES" attributeType="String"/>
         <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="updatedAt" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="lastUsedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="lastSyncDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="needsSync" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
         <relationship name="user" maxCount="1" deletionRule="Nullify" destinationEntity="CDUser" inverseName="tags" inverseEntity="CDUser"/>

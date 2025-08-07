@@ -44,17 +44,25 @@ class AuthViewModel: ObservableObject {
     }
     
     private func checkAuthenticationStatus() {
-        if authManager.isAuthenticated && authManager.isTokenValid {
+        // Only attempt to fetch the user if we have valid credentials AND we're supposed to be logged in
+        if authManager.isAuthenticated && authManager.isTokenValid && UserDefaults.standard.bool(forKey: "shouldStayLoggedIn") {
             fetchCurrentUser()
         } else {
             authState = .unauthenticated
+            // Clear any stale tokens
+            authManager.clearCredentials()
         }
     }
     
     // MARK: - Authentication Actions
-    func login(email: String, password: String) {
+    func login(
+        email: String,
+        password: String,
+        shouldStayLoggedIn: Bool = false
+    ) {
         guard !email.isEmpty && !password.isEmpty else {
             errorMessage = "Please enter both email and password"
+            authState = .error("Please enter both email and password")
             return
         }
         
@@ -63,7 +71,11 @@ class AuthViewModel: ObservableObject {
         errorMessage = nil
         authState = .loading
         
-        authManager.login(email: email, password: password)
+        authManager.login(
+            email: email,
+            password: password,
+            shouldStayLoggedIn: shouldStayLoggedIn
+        )
             .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { [weak self] completion in
@@ -73,6 +85,9 @@ class AuthViewModel: ObservableObject {
                         print("❌ AuthViewModel: Login failed with error: \(error)")
                         self?.errorMessage = error.localizedDescription
                         self?.authState = .error(error.localizedDescription)
+                        if let apiError = error as? APIError, apiError.isUnauthorized {
+                            self?.authState = .unauthenticated
+                        }
                     case .finished:
                         print("✅ AuthViewModel: Login completed successfully")
                         break
@@ -83,6 +98,7 @@ class AuthViewModel: ObservableObject {
                     self?.currentUser = user
                     self?.authState = .authenticated(user)
                     self?.errorMessage = nil
+                    self?.isLoading = false
                 }
             )
             .store(in: &cancellables)
@@ -91,16 +107,19 @@ class AuthViewModel: ObservableObject {
     func register(email: String, password: String, displayName: String? = nil) {
         guard !email.isEmpty && !password.isEmpty else {
             errorMessage = "Please enter both email and password"
+            authState = .error("Please enter both email and password")
             return
         }
         
         guard isValidEmail(email) else {
             errorMessage = "Please enter a valid email address"
+            authState = .error("Please enter a valid email address")
             return
         }
         
         guard password.count >= 6 else {
             errorMessage = "Password must be at least 6 characters long"
+            authState = .error("Password must be at least 6 characters long")
             return
         }
         
@@ -119,6 +138,9 @@ class AuthViewModel: ObservableObject {
                         print("❌ AuthViewModel: Registration failed with error: \(error)")
                         self?.errorMessage = error.localizedDescription
                         self?.authState = .error(error.localizedDescription)
+                        if let apiError = error as? APIError, apiError.isUnauthorized {
+                            self?.authState = .unauthenticated
+                        }
                     case .finished:
                         print("✅ AuthViewModel: Registration completed successfully")
                         break
@@ -129,6 +151,7 @@ class AuthViewModel: ObservableObject {
                     self?.currentUser = user
                     self?.authState = .authenticated(user)
                     self?.errorMessage = nil
+                    self?.isLoading = false
                 }
             )
             .store(in: &cancellables)
@@ -164,8 +187,14 @@ class AuthViewModel: ObservableObject {
                 receiveCompletion: { [weak self] completion in
                     switch completion {
                     case .failure(let error):
-                        self?.errorMessage = error.localizedDescription
-                        self?.authState = .error(error.localizedDescription)
+                        // If we get a 401, clear credentials and set state to unauthenticated
+                        if let apiError = error as? APIError, apiError.isUnauthorized {
+                            self?.authManager.clearCredentials()
+                            self?.authState = .unauthenticated
+                        } else {
+                            self?.errorMessage = error.localizedDescription
+                            self?.authState = .error(error.localizedDescription)
+                        }
                     case .finished:
                         break
                     }
@@ -187,9 +216,9 @@ class AuthViewModel: ObservableObject {
     
     func clearError() {
         errorMessage = nil
-        if case .error = authState {
-            authState = .idle
-        }
+        isLoading = false
+        // When clearing an error, we should return to unauthenticated state to show login/signup
+        authState = .unauthenticated
     }
     
     // MARK: - Computed Properties

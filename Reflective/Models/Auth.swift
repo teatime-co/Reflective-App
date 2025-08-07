@@ -92,4 +92,9 @@ struct JWTToken {
         self.refreshToken = refreshToken
         self.expiresAt = Date().addingTimeInterval(TimeInterval(expiresIn))
     }
+}
+
+// MARK: - Empty Response for Delete Operations
+struct EmptyResponse: Codable {
+    // Empty struct for delete operations that don't return data
 } 
