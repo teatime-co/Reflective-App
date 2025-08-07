@@ -31,6 +31,8 @@
         <attribute name="writingDuration" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="wordCount" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="processingStatus" optional="YES" attributeType="String"/>
+        <attribute name="themesData" optional="YES" attributeType="Binary"/>
+        <attribute name="linguisticMetricsData" optional="YES" attributeType="Binary"/>
         <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="updatedAt" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="lastSyncDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>

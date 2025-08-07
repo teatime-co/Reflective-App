@@ -41,14 +41,17 @@ struct EntryEditorView: View {
     }
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Toolbar
-            editorToolbar
-            
-            Divider()
-            
-            // Main text editor area
-            textEditorSection
+        HSplitView {
+            // Main editor area
+            VStack(spacing: 0) {
+                // Toolbar
+                editorToolbar
+                
+                Divider()
+                
+                // Main text editor area
+                textEditorSection
+            }
         }
         .frame(minWidth: 600, minHeight: 400)
         .navigationTitle(mode.title)
@@ -339,8 +342,6 @@ struct EntryEditorView: View {
             )
         }
     }
-    
-    // Removed mood-related methods
     
     private let timeAgoFormatter: RelativeDateTimeFormatter = {
         let formatter = RelativeDateTimeFormatter()

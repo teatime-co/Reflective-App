@@ -93,7 +93,7 @@ class APIClient: ObservableObject {
     }
 
     // MARK: - Generic Request Method
-    func request<T: Codable>(
+    func requestPublisher<T: Codable>(
         endpoint: String,
         method: HTTPMethod = .GET,
         body: Codable? = nil,
@@ -193,6 +193,22 @@ class APIClient: ObservableObject {
                         if let apiError = error as? APIError {
                             return apiError
                         } else if let decodingError = error as? DecodingError {
+                            // Log the decoding error details for debugging
+                            print("🔍 APIClient: Decoding error for type \(T.self)")
+                            print("🔍 APIClient: Decoding error details: \(decodingError)")
+                            
+                            // Try to print the raw JSON for debugging
+                            if case .keyNotFound(let key, let context) = decodingError {
+                                print("🔍 APIClient: Missing key '\(key.stringValue)' at path: \(context.codingPath.map { $0.stringValue }.joined(separator: "."))")
+                            } else if case .typeMismatch(let type, let context) = decodingError {
+                                print("🔍 APIClient: Type mismatch for type '\(type)' at path: \(context.codingPath.map { $0.stringValue }.joined(separator: "."))")
+                            } else if case .valueNotFound(let type, let context) = decodingError {
+                                print("🔍 APIClient: Value not found for type '\(type)' at path: \(context.codingPath.map { $0.stringValue }.joined(separator: "."))")
+                            } else if case .dataCorrupted(let context) = decodingError {
+                                print("🔍 APIClient: Data corrupted at path: \(context.codingPath.map { $0.stringValue }.joined(separator: "."))")
+                                print("🔍 APIClient: Debug description: \(context.debugDescription)")
+                            }
+                            
                             return APIError.decodingError(decodingError)
                         } else if let urlError = error as? URLError {
                             return APIError.networkError(urlError)
@@ -210,7 +226,7 @@ class APIClient: ObservableObject {
         endpoint: String,
         requiresAuth: Bool = true
     ) -> AnyPublisher<T, APIError> {
-        return request(endpoint: endpoint, method: .GET, requiresAuth: requiresAuth)
+        return requestPublisher(endpoint: endpoint, method: .GET, requiresAuth: requiresAuth)
     }
     
     func post<T: Codable>(
@@ -218,7 +234,7 @@ class APIClient: ObservableObject {
         body: Codable?,
         requiresAuth: Bool = true
     ) -> AnyPublisher<T, APIError> {
-        return request(endpoint: endpoint, method: .POST, body: body, requiresAuth: requiresAuth)
+        return requestPublisher(endpoint: endpoint, method: .POST, body: body, requiresAuth: requiresAuth)
     }
     
     func put<T: Codable>(
@@ -226,14 +242,86 @@ class APIClient: ObservableObject {
         body: Codable?,
         requiresAuth: Bool = true
     ) -> AnyPublisher<T, APIError> {
-        return request(endpoint: endpoint, method: .PUT, body: body, requiresAuth: requiresAuth)
+        return requestPublisher(endpoint: endpoint, method: .PUT, body: body, requiresAuth: requiresAuth)
     }
     
     func delete<T: Codable>(
         endpoint: String,
         requiresAuth: Bool = true
     ) -> AnyPublisher<T, APIError> {
-        return request(endpoint: endpoint, method: .DELETE, requiresAuth: requiresAuth)
+        return requestPublisher(endpoint: endpoint, method: .DELETE, requiresAuth: requiresAuth)
+    }
+    
+    // MARK: - Async/Await Wrapper Methods
+    
+    /// Async wrapper for the generic request method
+    func request<T: Codable>(
+        endpoint: String,
+        method: HTTPMethod = .GET,
+        body: Codable? = nil,
+        requiresAuth: Bool = true
+    ) async throws -> T {
+        return try await withCheckedThrowingContinuation { continuation in
+            var cancellable: AnyCancellable?
+            cancellable = requestPublisher(endpoint: endpoint, method: method, body: body, requiresAuth: requiresAuth)
+                .sink(
+                    receiveCompletion: { completion in
+                        defer { cancellable = nil } // Clean up the cancellable
+                        switch completion {
+                        case .failure(let error):
+                            continuation.resume(throwing: error)
+                        case .finished:
+                            break
+                        }
+                    },
+                    receiveValue: { value in
+                        defer { cancellable = nil } // Clean up the cancellable
+                        continuation.resume(returning: value)
+                    }
+                )
+        }
+    }
+    
+    /// Async wrapper for GET requests
+    func get<T: Codable>(
+        endpoint: String,
+        requiresAuth: Bool = true
+    ) async throws -> T {
+        return try await request(endpoint: endpoint, method: .GET, requiresAuth: requiresAuth)
+    }
+    
+    /// Async wrapper for POST requests
+    func post<T: Codable>(
+        endpoint: String,
+        body: Codable? = nil,
+        requiresAuth: Bool = true
+    ) async throws -> T {
+        return try await request(endpoint: endpoint, method: .POST, body: body, requiresAuth: requiresAuth)
+    }
+    
+    /// Async wrapper for PUT requests
+    func put<T: Codable>(
+        endpoint: String,
+        body: Codable? = nil,
+        requiresAuth: Bool = true
+    ) async throws -> T {
+        return try await request(endpoint: endpoint, method: .PUT, body: body, requiresAuth: requiresAuth)
+    }
+    
+    /// Async wrapper for DELETE requests
+    func delete<T: Codable>(
+        endpoint: String,
+        requiresAuth: Bool = true
+    ) async throws -> T {
+        return try await request(endpoint: endpoint, method: .DELETE, requiresAuth: requiresAuth)
+    }
+    
+    /// Async wrapper for DELETE requests that don't return data
+    func delete(
+        endpoint: String,
+        requiresAuth: Bool = true
+    ) async throws {
+        let _: EmptyResponse = try await request(endpoint: endpoint, method: .DELETE, requiresAuth: requiresAuth)
     }
 }
 

@@ -4,16 +4,35 @@ struct EntryDetailView: View {
     let entry: JournalEntry
     @StateObject private var journalService = JournalService.shared
     @StateObject private var tagService = TagService.shared
+    @StateObject private var aiViewModel = AIFeaturesViewModel()
     @EnvironmentObject var navigationManager: NavigationManager
     
+    @Environment(\.colorScheme) var colorScheme
     @State private var currentEntry: JournalEntry
-    @State private var showingDeleteAlert = false
     @State private var showingShareSheet = false
+    @State private var showingDeleteAlert = false
     @State private var isUpdatingStatus = false
+    
+    // Direct analysis results from API (bypassing Core Data issues)
+    @State private var analysisResults: (themes: [Theme], linguistics: LinguisticMetrics?)?
+    
+    private var isAnalyzing: Bool {
+        return aiViewModel.isProcessingEntry(currentEntry.id)
+    }
     
     // Check if the entry still exists in the shared service
     private var entryStillExists: Bool {
         journalService.entries.contains { $0.id == currentEntry.id }
+    }
+    
+    // Show analysis card if there's active processing or recent analysis activity
+    private var shouldShowAnalysisCard: Bool {
+        return aiViewModel.isProcessingEntry(currentEntry.id) || 
+               !aiViewModel.getTasksForEntry(currentEntry.id).isEmpty ||
+               !aiViewModel.getErrorsForEntry(currentEntry.id).isEmpty ||
+               !currentEntry.themes.isEmpty ||
+               currentEntry.linguisticMetrics != nil ||
+               analysisResults != nil // Include direct analysis results
     }
     
     init(entry: JournalEntry) {
@@ -43,6 +62,15 @@ struct EntryDetailView: View {
                 
                 // Content section
                 contentSection
+                
+                // Analysis Results section (only show if there's processing activity or recent results)
+                if shouldShowAnalysisCard {
+                    AnalysisResultsCard(
+                        aiViewModel: aiViewModel, 
+                        entryId: currentEntry.id,
+                        directResults: analysisResults
+                    )
+                }
                 
                 // Themes section
                 if !currentEntry.themes.isEmpty {
@@ -90,6 +118,11 @@ struct EntryDetailView: View {
                             Label("Edit", systemImage: "pencil")
                         }
                         
+                        Button(action: analyzeEntry) {
+                            Label("Analyze with AI", systemImage: "brain.head.profile")
+                        }
+                        .disabled(isAnalyzing)
+                        
                         Button(action: { showingShareSheet = true }) {
                             Label("Share", systemImage: "square.and.arrow.up")
                         }
@@ -115,6 +148,20 @@ struct EntryDetailView: View {
                     navigationManager.navigateToEditor(mode: .edit(currentEntry))
                 }
                 .keyboardShortcut("e", modifiers: .command)
+                
+                Button(action: analyzeEntry) {
+                    HStack(spacing: 4) {
+                        if isAnalyzing {
+                            ProgressView()
+                                .scaleEffect(0.1)
+                        } else {
+                            Image(systemName: "brain.head.profile")
+                        }
+                        Text("Analyze")
+                    }
+                }
+                .disabled(isAnalyzing)
+                .keyboardShortcut("a", modifiers: .command)
             }
         }
         .alert("Delete Entry", isPresented: $showingDeleteAlert) {
@@ -429,6 +476,40 @@ struct EntryDetailView: View {
         navigationManager.navigateToEditor(mode: .edit(currentEntry))
     }
     
+    private func analyzeEntry() {
+        Task {
+            // Use the direct analysis method that returns results
+            let results = await aiViewModel.analyzeEntry(currentEntry)
+            
+            await MainActor.run {
+                // Store the results directly in state
+                analysisResults = results
+            }
+            
+            // Still refresh the entry for other updates, but don't depend on it for analysis display
+            await refreshEntry()
+        }
+    }
+    
+    /// Refresh the current entry data from the database
+    private func refreshEntry() async {
+        do {
+            // Get fresh entry data from the service
+            let refreshedEntry = try await journalService.getEntry(id: currentEntry.id)
+            
+            await MainActor.run {
+                currentEntry = refreshedEntry
+            }
+            
+            // Also refresh the entire entries list to ensure consistency
+            await MainActor.run {
+                journalService.refreshEntries()
+            }
+        } catch {
+            print("Failed to refresh entry after analysis: \(error)")
+        }
+    }
+    
     private func getStatusIcon(_ status: CompletionStatus) -> String {
         switch status {
         case .draft:
@@ -535,7 +616,7 @@ struct ThemeCardView: View {
             Spacer()
             
             VStack(alignment: .trailing, spacing: 2) {
-                Text(theme.displayConfidence)
+                Text(theme.formattedConfidence)
                     .font(.caption)
                     .fontWeight(.medium)
                     .foregroundColor(.accentColor)

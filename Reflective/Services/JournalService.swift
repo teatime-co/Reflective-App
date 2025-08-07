@@ -8,6 +8,12 @@
 import Foundation
 import Combine
 
+// MARK: - Sync Mode Enum
+enum SyncMode: String, CaseIterable {
+    case create = "create"
+    case update = "update"
+}
+
 // MARK: - Journal Service
 @MainActor
 class JournalService: ObservableObject {
@@ -48,7 +54,8 @@ class JournalService: ObservableObject {
     }
     
     private func loadLocalEntries() {
-        let cdLogs = coreDataManager.fetchJournalEntries()
+        let userID = getCurrentUserID()
+        let cdLogs = coreDataManager.fetchJournalEntries(userID: userID)
         entries = cdLogs.map { $0.toJournalEntry() }
         
         // Update TagService with current entries
@@ -56,6 +63,11 @@ class JournalService: ObservableObject {
     }
     
     // MARK: - Entry Management
+    
+    /// Refresh entries from local Core Data storage
+    func refreshEntries() {
+        loadLocalEntries()
+    }
     
     /// Create a new journal entry (offline-first)
     func createEntry(
@@ -95,7 +107,7 @@ class JournalService: ObservableObject {
             // Sync to server in background if online
             if !coreDataManager.isOfflineMode {
                 Task {
-                    await syncEntryToServer(savedEntry)
+                    await syncEntryToServer(savedEntry, mode: .create)
                 }
             }
             
@@ -145,7 +157,7 @@ class JournalService: ObservableObject {
             // Sync to server in background if online
             if !coreDataManager.isOfflineMode {
                 Task {
-                    await syncEntryToServer(savedEntry)
+                    await syncEntryToServer(savedEntry, mode: .update)
                 }
             }
             
@@ -165,8 +177,9 @@ class JournalService: ObservableObject {
         errorMessage = nil
         
         do {
-            // Find and delete from Core Data
-            let cdLogs = coreDataManager.fetchJournalEntries()
+            // Find and delete from Core Data, but only for the current user
+            let userID = getCurrentUserID()
+            let cdLogs = coreDataManager.fetchJournalEntries(userID: userID)
             if let cdLog = cdLogs.first(where: { $0.id == entry.id }) {
                 try coreDataManager.deleteJournalEntry(cdLog)
             }
@@ -204,47 +217,41 @@ class JournalService: ObservableObject {
         isLoading = true
         errorMessage = nil
         
-        do {
-            // Load from Core Data first (instant UI update)
-            let userID = getCurrentUserID()
-            let cdLogs = coreDataManager.fetchJournalEntries(
-                userID: userID,
-                status: status,
-                limit: limit,
-                offset: offset
-            )
-            
-            let localEntries = cdLogs.map { $0.toJournalEntry() }
-            
-            if offset == 0 {
-                entries = localEntries
-            } else {
-                entries.append(contentsOf: localEntries)
-            }
-            
-            // Update TagService with current entries (this automatically handles tag cleanup)
-            TagService.shared.refreshFromEntries(entries)
-            
-            // Sync with server in background if online
-            if !coreDataManager.isOfflineMode {
-                Task {
-                    await syncEntriesFromServer(status: status, limit: limit, offset: offset)
-                }
-            }
-            
-            isLoading = false
-            
-        } catch {
-            isLoading = false
-            errorMessage = "Failed to fetch entries: \(error.localizedDescription)"
-            throw error
+        // Load from Core Data first (instant UI update)
+        let userID = getCurrentUserID()
+        let cdLogs = coreDataManager.fetchJournalEntries(
+            userID: userID,
+            status: status,
+            limit: limit,
+            offset: offset
+        )
+        
+        let localEntries = cdLogs.map { $0.toJournalEntry() }
+        
+        if offset == 0 {
+            entries = localEntries
+        } else {
+            entries.append(contentsOf: localEntries)
         }
+        
+        // Update TagService with current entries (this automatically handles tag cleanup)
+        TagService.shared.refreshFromEntries(entries)
+        
+        // Sync with server in background if online
+        if !coreDataManager.isOfflineMode {
+            Task {
+                await syncEntriesFromServer(status: status, limit: limit, offset: offset)
+            }
+        }
+        
+        isLoading = false
     }
     
     /// Get a specific entry by ID
     func getEntry(id: UUID) async throws -> JournalEntry {
-        // Check Core Data first
-        let cdLogs = coreDataManager.fetchJournalEntries()
+        // Check Core Data first, but only for the current user
+        let userID = getCurrentUserID()
+        let cdLogs = coreDataManager.fetchJournalEntries(userID: userID)
         if let cdLog = cdLogs.first(where: { $0.id == id }) {
             return cdLog.toJournalEntry()
         }
@@ -547,7 +554,7 @@ class JournalService: ObservableObject {
     
     // MARK: - Server Sync Methods
     
-    private func syncEntryToServer(_ entry: JournalEntry) async {
+    private func syncEntryToServer(_ entry: JournalEntry, mode: SyncMode = .create) async {
         do {
             let request = LogCreateRequest(
                 id: entry.id,
@@ -561,8 +568,14 @@ class JournalService: ObservableObject {
                 promptID: entry.promptID
             )
             
-            let _: LogResponse = try await apiClient.post(endpoint: "logs/", body: request).async()
-            print("✅ [macOS] Synced entry \(entry.id) to server")
+            switch mode {
+            case .create:
+                let _: LogResponse = try await apiClient.post(endpoint: "logs/", body: request).async()
+            case .update:
+                let _: LogResponse = try await apiClient.put(endpoint: "logs/\(entry.id)", body: request).async()
+            }
+            
+            print("✅ [macOS] Synced entry \(entry.id) to server (\(mode.rawValue))")
             
         } catch APIError.unauthorized {
             print("❌ [macOS] Authentication failed when syncing entry \(entry.id) - user needs to login")

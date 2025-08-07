@@ -214,4 +214,92 @@ extension Tag {
     static func getPresetColor(at index: Int) -> String {
         return colorPresets[index % colorPresets.count]
     }
+}
+
+// MARK: - Theme Model (Automatically Detected)
+struct Theme: Identifiable, Codable, Hashable {
+    let id: UUID
+    var name: String
+    var description: String?
+    var color: String?
+    var confidenceScore: Float
+    var isCustom: Bool // Kept for backward compatibility, but all themes are now auto-detected
+    let createdAt: Date
+    var updatedAt: Date
+    
+    // MARK: - Computed Properties
+    var swiftUIColor: Color {
+        if let colorHex = color {
+            return Color(hex: colorHex) ?? .purple
+        }
+        return .purple
+    }
+    
+    var formattedConfidence: String {
+        let percentage = Int(confidenceScore * 100)
+        return "\(percentage)%"
+    }
+    
+    // MARK: - Initializers
+    init(
+        id: UUID = UUID(),
+        name: String,
+        description: String? = nil,
+        color: String? = nil,
+        confidenceScore: Float = 0.0,
+        isCustom: Bool = false, // All themes are automatically detected
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) {
+        self.id = id
+        self.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.description = description
+        self.color = color ?? Theme.generateRandomColor()
+        self.confidenceScore = confidenceScore
+        self.isCustom = false // Force all themes to be automatically detected
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+    
+    // MARK: - Custom Decoding
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+        color = try container.decodeIfPresent(String.self, forKey: .color)
+        
+        // confidence_score might not be present in API response, default to 0.0
+        confidenceScore = try container.decodeIfPresent(Float.self, forKey: .confidenceScore) ?? 0.0
+        
+        isCustom = try container.decodeIfPresent(Bool.self, forKey: .isCustom) ?? false
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+    }
+    
+    // MARK: - Static Methods
+    static func generateRandomColor() -> String {
+        return Tag.colorPresets.randomElement() ?? "#6C5CE7"
+    }
+    
+    // MARK: - Codable
+    enum CodingKeys: String, CodingKey {
+        case id, name, description, color
+        case confidenceScore = "confidence_score"
+        case isCustom = "is_custom"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}
+
+// MARK: - Theme Match Model (API Response)
+struct ThemeMatch: Codable {
+    let theme: Theme
+    let confidence_score: Float
+    
+    enum CodingKeys: String, CodingKey {
+        case theme
+        case confidence_score
+    }
 } 

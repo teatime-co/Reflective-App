@@ -14,7 +14,7 @@ struct JournalEntry: Identifiable, Codable, Hashable {
     var targetWordCount: Int
     var writingDuration: Int? // seconds
     var wordCount: Int?
-    var processingStatus: ProcessingStatus?
+    var processingStatus: EntryProcessingStatus?
     let createdAt: Date
     var updatedAt: Date
     var tags: [Tag]
@@ -116,7 +116,7 @@ enum CompletionStatus: String, Codable, CaseIterable {
     }
 }
 
-enum ProcessingStatus: String, Codable, CaseIterable {
+enum EntryProcessingStatus: String, Codable, CaseIterable {
     case pending = "pending"
     case processed = "processed"
     case failed = "failed"
@@ -131,18 +131,7 @@ enum ProcessingStatus: String, Codable, CaseIterable {
 }
 
 // MARK: - Supporting Models
-struct Theme: Identifiable, Codable, Hashable {
-    let id: UUID
-    let name: String
-    let description: String?
-    let confidenceThreshold: Float
-    let confidenceScore: Float
-    let detectedAt: Date
-    
-    var displayConfidence: String {
-        return String(format: "%.1f%%", confidenceScore * 100)
-    }
-}
+// Note: Theme model is defined in Tag.swift - using that as the canonical definition
 
 struct LinguisticMetrics: Codable, Hashable {
     let id: UUID
@@ -156,59 +145,88 @@ struct LinguisticMetrics: Codable, Hashable {
     let processedAt: Date
 }
 
+// MARK: - API Response Models
+struct LinguisticMetricsResponse: Codable {
+    let id: UUID?
+    let log_id: UUID
+    let vocabulary_diversity_score: Float
+    let sentiment_score: Float
+    let complexity_score: Float
+    let readability_level: Float
+    let emotion_scores: EmotionScoresResponse
+    let writing_style_metrics: WritingStyleMetricsResponse
+    let processed_at: Date
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case log_id
+        case vocabulary_diversity_score
+        case sentiment_score
+        case complexity_score
+        case readability_level
+        case emotion_scores
+        case writing_style_metrics
+        case processed_at
+    }
+}
+
+// Response models matching the actual API structure
+struct EmotionScoresResponse: Codable {
+    let emotions: [String: Float]
+    let subjectivity: Float
+}
+
+struct WritingStyleMetricsResponse: Codable {
+    let sentence_types: [String: Float]
+    let style_similarities: [String: Float]?
+    let formality_indicators: [String: Float]?
+}
+
 struct EntryRevision: Identifiable, Codable, Hashable {
     let id: UUID
     let logID: UUID
     let revisionNumber: Int
-    let contentDelta: [String: Any] // JSON representation
+    var contentDeltaData: Data? // Store as Data instead of [String: Any]
     let revisionType: String
     let createdAt: Date
     
-    // Custom implementation for Equatable
-    static func == (lhs: EntryRevision, rhs: EntryRevision) -> Bool {
-        return lhs.id == rhs.id &&
-               lhs.logID == rhs.logID &&
-               lhs.revisionNumber == rhs.revisionNumber &&
-               lhs.revisionType == rhs.revisionType &&
-               lhs.createdAt == rhs.createdAt &&
-               NSDictionary(dictionary: lhs.contentDelta).isEqual(to: rhs.contentDelta)
+    // Computed property for accessing content delta
+    var contentDelta: [String: Any]? {
+        guard let data = contentDeltaData else { return nil }
+        return try? JSONSerialization.jsonObject(with: data) as? [String: Any]
     }
     
-    // Custom implementation for Hashable
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-        hasher.combine(logID)
-        hasher.combine(revisionNumber)
-        hasher.combine(revisionType)
-        hasher.combine(createdAt)
-        // Note: We only hash the basic properties since contentDelta is complex
+    // Helper to set content delta
+    mutating func setContentDelta(_ delta: [String: Any]) {
+        contentDeltaData = try? JSONSerialization.data(withJSONObject: delta)
     }
     
-    // Custom implementation for Codable since [String: Any] isn't Codable
+    // MARK: - Initializers
+    init(
+        id: UUID = UUID(),
+        logID: UUID,
+        revisionNumber: Int,
+        contentDelta: [String: Any]? = nil,
+        revisionType: String,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.logID = logID
+        self.revisionNumber = revisionNumber
+        self.revisionType = revisionType
+        self.createdAt = createdAt
+        
+        if let delta = contentDelta {
+            self.contentDeltaData = try? JSONSerialization.data(withJSONObject: delta)
+        } else {
+            self.contentDeltaData = nil
+        }
+    }
+    
+    // MARK: - Codable
     enum CodingKeys: String, CodingKey {
         case id, logID, revisionNumber, revisionType, createdAt
-        case contentDelta = "content_delta"
-    }
-    
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(UUID.self, forKey: .id)
-        logID = try container.decode(UUID.self, forKey: .logID)
-        revisionNumber = try container.decode(Int.self, forKey: .revisionNumber)
-        revisionType = try container.decode(String.self, forKey: .revisionType)
-        createdAt = try container.decode(Date.self, forKey: .createdAt)
-        
-        // Handle contentDelta as raw data for now
-        contentDelta = [:]
-    }
-    
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(id, forKey: .id)
-        try container.encode(logID, forKey: .logID)
-        try container.encode(revisionNumber, forKey: .revisionNumber)
-        try container.encode(revisionType, forKey: .revisionType)
-        try container.encode(createdAt, forKey: .createdAt)
+        case contentDeltaData = "content_delta"
     }
 }
 

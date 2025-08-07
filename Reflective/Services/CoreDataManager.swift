@@ -454,6 +454,33 @@ class CoreDataManager: ObservableObject {
         // Fallback for development/testing
         return UUID(uuidString: "00000000-0000-0000-0000-000000000000") ?? UUID()
     }
+    
+    /// Convert CDLog to JournalEntry for AI processing
+    private func convertToJournalEntry(from cdLog: CDLog) -> JournalEntry {
+        let tagArray = (cdLog.tags?.allObjects as? [CDTag])?.map { $0.toTag() } ?? []
+        
+        // Decode themes if available
+        var themes: [Theme] = []
+        if let themesData = cdLog.themesData {
+            themes = (try? JSONDecoder().decode([Theme].self, from: themesData)) ?? []
+        }
+        
+        return JournalEntry(
+            id: cdLog.id ?? UUID(),
+            userID: cdLog.userID ?? UUID(),
+            content: cdLog.content ?? "",
+            moodScore: cdLog.moodScore == 0 ? nil : cdLog.moodScore,
+            completionStatus: CompletionStatus(rawValue: cdLog.completionStatus ?? "draft") ?? .draft,
+            targetWordCount: Int(cdLog.targetWordCount),
+            writingDuration: cdLog.writingDuration == 0 ? nil : Int(cdLog.writingDuration),
+            sessionID: cdLog.sessionID,
+            promptID: cdLog.promptID,
+            tags: tagArray,
+            themes: themes,
+            createdAt: cdLog.createdAt ?? Date(),
+            updatedAt: cdLog.updatedAt ?? Date()
+        )
+    }
 }
 
 // MARK: - Core Data Extensions
@@ -512,5 +539,298 @@ extension CDUser {
             createdAt: createdAt ?? Date(),
             updatedAt: updatedAt ?? Date()
         )
+    }
+}
+
+// MARK: - AI Features Extensions
+
+extension CoreDataManager {
+    
+    // MARK: - Entry Fetching for AI
+    
+    /// Fetch an entry by ID for AI processing
+    func fetchEntry(by id: UUID) async -> JournalEntry? {
+        await withCheckedContinuation { continuation in
+            container.performBackgroundTask { context in
+                let request: NSFetchRequest<CDLog> = CDLog.fetchRequest()
+                request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
+                request.fetchLimit = 1
+                
+                do {
+                    if let cdEntry = try context.fetch(request).first {
+                        let entry = self.convertToJournalEntry(from: cdEntry)
+                        continuation.resume(returning: entry)
+                    } else {
+                        continuation.resume(returning: nil)
+                    }
+                } catch {
+                    print("❌ CoreDataManager: Failed to fetch entry for AI processing - \(error)")
+                    continuation.resume(returning: nil)
+                }
+            }
+        }
+    }
+    
+    // MARK: - Theme Caching Methods
+    
+    /// Cache themes for an entry
+    func cacheThemes(_ themes: [Theme], for entryId: UUID) async {
+        await withCheckedContinuation { continuation in
+            container.performBackgroundTask { context in
+                // Find the entry
+                let request: NSFetchRequest<CDLog> = CDLog.fetchRequest()
+                request.predicate = NSPredicate(format: "id == %@", entryId as CVarArg)
+                request.fetchLimit = 1
+                
+                do {
+                    if let cdEntry = try context.fetch(request).first {
+                        // Convert themes to JSON and store
+                        let themesData = try JSONEncoder().encode(themes)
+                        cdEntry.themesData = themesData
+                        cdEntry.lastSyncDate = Date()
+                        
+                        try context.save()
+                        print("✅ CoreDataManager: Cached themes for entry \(entryId)")
+                    }
+                } catch {
+                    print("❌ CoreDataManager: Failed to cache themes - \(error)")
+                }
+                
+                continuation.resume()
+            }
+        }
+    }
+    
+    /// Cache a custom theme
+    func cacheCustomTheme(_ theme: Theme) async {
+        await withCheckedContinuation { continuation in
+            container.performBackgroundTask { context in
+                do {
+                    // Store in UserDefaults for custom themes as they're not entry-specific
+                    let key = "cached_custom_themes"
+                    var existingThemes: [Theme] = []
+                    
+                    if let data = UserDefaults.standard.data(forKey: key),
+                       let themes = try? JSONDecoder().decode([Theme].self, from: data) {
+                        existingThemes = themes
+                    }
+                    
+                    // Add or update theme
+                    if let index = existingThemes.firstIndex(where: { $0.id == theme.id }) {
+                        existingThemes[index] = theme
+                    } else {
+                        existingThemes.append(theme)
+                    }
+                    
+                    let data = try JSONEncoder().encode(existingThemes)
+                    UserDefaults.standard.set(data, forKey: key)
+                    
+                    print("✅ CoreDataManager: Cached custom theme \(theme.name)")
+                } catch {
+                    print("❌ CoreDataManager: Failed to cache custom theme - \(error)")
+                }
+                
+                continuation.resume()
+            }
+        }
+    }
+    
+    /// Remove cached theme
+    func removeCachedTheme(_ themeId: UUID) async {
+        await withCheckedContinuation { continuation in
+            container.performBackgroundTask { context in
+                do {
+                    let key = "cached_custom_themes"
+                    if let data = UserDefaults.standard.data(forKey: key),
+                       var themes = try? JSONDecoder().decode([Theme].self, from: data) {
+                        themes.removeAll { $0.id == themeId }
+                        let updatedData = try JSONEncoder().encode(themes)
+                        UserDefaults.standard.set(updatedData, forKey: key)
+                    }
+                } catch {
+                    print("❌ CoreDataManager: Failed to remove cached theme - \(error)")
+                }
+                
+                continuation.resume()
+            }
+        }
+    }
+    
+    /// Fetch cached themes
+    func fetchCachedThemes() async -> [Theme] {
+        return await withCheckedContinuation { continuation in
+            let key = "cached_custom_themes"
+            if let data = UserDefaults.standard.data(forKey: key),
+               let themes = try? JSONDecoder().decode([Theme].self, from: data) {
+                continuation.resume(returning: themes)
+            } else {
+                continuation.resume(returning: [])
+            }
+        }
+    }
+    
+    // MARK: - Entry Updates for AI
+    
+    /// Update entry themes
+    func updateEntryThemes(entryId: UUID, themes: [Theme]) async {
+        await withCheckedContinuation { continuation in
+            container.performBackgroundTask { context in
+                let request: NSFetchRequest<CDLog> = CDLog.fetchRequest()
+                request.predicate = NSPredicate(format: "id == %@", entryId as CVarArg)
+                request.fetchLimit = 1
+                
+                do {
+                    if let cdEntry = try context.fetch(request).first {
+                        let themesData = try JSONEncoder().encode(themes)
+                        cdEntry.themesData = themesData
+                        cdEntry.lastSyncDate = Date()
+                        cdEntry.needsSync = true
+                        
+                        try context.save()
+                        print("✅ CoreDataManager: Updated themes for entry \(entryId)")
+                    }
+                } catch {
+                    print("❌ CoreDataManager: Failed to update entry themes - \(error)")
+                }
+                
+                continuation.resume()
+            }
+        }
+    }
+    
+    /// Update entry linguistic metrics
+    func updateEntryLinguisticMetrics(entryId: UUID, metrics: LinguisticMetrics) async {
+        await withCheckedContinuation { continuation in
+            container.performBackgroundTask { context in
+                let request: NSFetchRequest<CDLog> = CDLog.fetchRequest()
+                request.predicate = NSPredicate(format: "id == %@", entryId as CVarArg)
+                request.fetchLimit = 1
+                
+                do {
+                    if let cdEntry = try context.fetch(request).first {
+                        let metricsData = try JSONEncoder().encode(metrics)
+                        cdEntry.linguisticMetricsData = metricsData
+                        cdEntry.lastSyncDate = Date()
+                        cdEntry.needsSync = true
+                        
+                        try context.save()
+                        print("✅ CoreDataManager: Updated linguistic metrics for entry \(entryId)")
+                    }
+                } catch {
+                    print("❌ CoreDataManager: Failed to update entry linguistic metrics - \(error)")
+                }
+                
+                continuation.resume()
+            }
+        }
+    }
+    
+    // MARK: - Linguistic Analytics Caching
+    
+    /// Cache linguistic metrics
+    func cacheLinguisticMetrics(_ metrics: LinguisticMetrics, for entryId: UUID) async {
+        await updateEntryLinguisticMetrics(entryId: entryId, metrics: metrics)
+    }
+    
+    /// Fetch cached linguistic metrics for entry
+    func fetchCachedLinguisticMetrics(for entryId: UUID) async -> LinguisticMetrics? {
+        return await withCheckedContinuation { continuation in
+            container.performBackgroundTask { context in
+                let request: NSFetchRequest<CDLog> = CDLog.fetchRequest()
+                request.predicate = NSPredicate(format: "id == %@", entryId as CVarArg)
+                request.fetchLimit = 1
+                
+                do {
+                    if let cdEntry = try context.fetch(request).first,
+                       let metricsData = cdEntry.linguisticMetricsData,
+                       let metrics = try? JSONDecoder().decode(LinguisticMetrics.self, from: metricsData) {
+                        continuation.resume(returning: metrics)
+                    } else {
+                        continuation.resume(returning: nil)
+                    }
+                } catch {
+                    print("❌ CoreDataManager: Failed to fetch cached linguistic metrics - \(error)")
+                    continuation.resume(returning: nil)
+                }
+            }
+        }
+    }
+    
+    /// Cache analytics summary
+    func cacheAnalyticsSummary(_ summary: AnalyticsSummary) async {
+        await withCheckedContinuation { continuation in
+            do {
+                let data = try JSONEncoder().encode(summary)
+                UserDefaults.standard.set(data, forKey: "cached_analytics_summary")
+                print("✅ CoreDataManager: Cached analytics summary")
+            } catch {
+                print("❌ CoreDataManager: Failed to cache analytics summary - \(error)")
+            }
+            continuation.resume()
+        }
+    }
+    
+    /// Fetch cached analytics summary
+    func fetchCachedAnalyticsSummary() async -> AnalyticsSummary? {
+        return await withCheckedContinuation { continuation in
+            if let data = UserDefaults.standard.data(forKey: "cached_analytics_summary"),
+               let summary = try? JSONDecoder().decode(AnalyticsSummary.self, from: data) {
+                continuation.resume(returning: summary)
+            } else {
+                continuation.resume(returning: nil)
+            }
+        }
+    }
+    
+    /// Cache sentiment trends
+    func cacheSentimentTrends(_ trends: [SentimentTrend]) async {
+        await withCheckedContinuation { continuation in
+            do {
+                let data = try JSONEncoder().encode(trends)
+                UserDefaults.standard.set(data, forKey: "cached_sentiment_trends")
+                print("✅ CoreDataManager: Cached sentiment trends")
+            } catch {
+                print("❌ CoreDataManager: Failed to cache sentiment trends - \(error)")
+            }
+            continuation.resume()
+        }
+    }
+    
+    /// Fetch cached sentiment trends
+    func fetchCachedSentimentTrends() async -> [SentimentTrend] {
+        return await withCheckedContinuation { continuation in
+            if let data = UserDefaults.standard.data(forKey: "cached_sentiment_trends"),
+               let trends = try? JSONDecoder().decode([SentimentTrend].self, from: data) {
+                continuation.resume(returning: trends)
+            } else {
+                continuation.resume(returning: [])
+            }
+        }
+    }
+    
+    /// Cache vocabulary metrics
+    func cacheVocabularyMetrics(_ metrics: [VocabularyMetric]) async {
+        await withCheckedContinuation { continuation in
+            do {
+                let data = try JSONEncoder().encode(metrics)
+                UserDefaults.standard.set(data, forKey: "cached_vocabulary_metrics")
+                print("✅ CoreDataManager: Cached vocabulary metrics")
+            } catch {
+                print("❌ CoreDataManager: Failed to cache vocabulary metrics - \(error)")
+            }
+            continuation.resume()
+        }
+    }
+    
+    /// Fetch cached vocabulary metrics
+    func fetchCachedVocabularyMetrics() async -> [VocabularyMetric] {
+        return await withCheckedContinuation { continuation in
+            if let data = UserDefaults.standard.data(forKey: "cached_vocabulary_metrics"),
+               let metrics = try? JSONDecoder().decode([VocabularyMetric].self, from: data) {
+                continuation.resume(returning: metrics)
+            } else {
+                continuation.resume(returning: [])
+            }
+        }
     }
 } 
