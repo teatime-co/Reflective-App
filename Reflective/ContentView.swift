@@ -81,7 +81,8 @@ struct MainAppView: View {
         case .tags:
             Text("Tags Management View - Coming Soon")
         case .search:
-            Text("Search View - Coming Soon")
+            SearchView()
+                .environmentObject(navigationManager)
         case .analytics:
             Text("Analytics View - Coming Soon")
         case .themes:

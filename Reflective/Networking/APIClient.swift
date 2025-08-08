@@ -118,6 +118,7 @@ class APIClient: ObservableObject {
                         // Use AuthManager to ensure we have a valid token
                         let validToken = try await AuthManager.shared.ensureValidToken()
                         request.setValue("Bearer \(validToken)", forHTTPHeaderField: "Authorization")
+                        print("🔐 [macOS] Added auth header: Authorization: Bearer \(String(validToken.prefix(20)))...")
                     }
                     
                     // Add request body if provided
@@ -145,6 +146,16 @@ class APIClient: ObservableObject {
             .flatMap { request in
                 if AppEnvironment.current.enableLogging {
                     print("🌐 API Request: \(method.rawValue) \(url)")
+                    print("📤 Request Headers:")
+                    if let headers = request.allHTTPHeaderFields {
+                        for (key, value) in headers {
+                            if key == "Authorization" {
+                                print("   \(key): Bearer \(String(value.dropFirst(7).prefix(20)))...")
+                            } else {
+                                print("   \(key): \(value)")
+                            }
+                        }
+                    }
                     if let bodyData = request.httpBody,
                        let bodyString = String(data: bodyData, encoding: .utf8) {
                         print("📤 Request Body: \(bodyString)")

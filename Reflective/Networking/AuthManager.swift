@@ -25,11 +25,19 @@ class AuthManager: ObservableObject {
     
     // MARK: - Token Management
     private func loadSavedTokens() {
+        print("🔍 [macOS] loadSavedTokens called - checking keychain...")
+        
         guard let accessToken = keychain.getAccessToken(),
               let refreshToken = keychain.getRefreshToken() else {
             print("🔍 [macOS] No saved tokens found")
+            print("   - Access token exists: \(keychain.getAccessToken() != nil)")
+            print("   - Refresh token exists: \(keychain.getRefreshToken() != nil)")
             return
         }
+        
+        print("✅ [macOS] Found saved tokens in keychain")
+        print("   - Access token preview: \(String(accessToken.prefix(20)))...")
+        print("   - Refresh token preview: \(String(refreshToken.prefix(10)))...")
         
         // Create token with a default expiration (will be refreshed if needed)
         let token = JWTToken(
@@ -48,7 +56,8 @@ class AuthManager: ObservableObject {
         }
         
         self.isAuthenticated = true
-        print("✅ [macOS] Loaded saved authentication token")
+        print("✅ [macOS] Loaded saved authentication token successfully")
+        print("   - isAuthenticated set to: \(isAuthenticated)")
         
         // Check if token needs refresh
         if token.isExpiringSoon {
@@ -268,11 +277,20 @@ class AuthManager: ObservableObject {
     
     /// Ensures we have a valid token before making authenticated requests (macOS)
     func ensureValidToken() async throws -> String {
+        print("🔍 [macOS] ensureValidToken called - Debug state:")
+        print("   - isAuthenticated: \(isAuthenticated)")
+        print("   - currentToken exists: \(currentToken != nil)")
+        
         // If no token exists, user needs to login
         guard let token = currentToken else {
             print("❌ [macOS] No token available - user needs to login")
+            print("   - Keychain access token: \(Keychain.shared.getAccessToken() != nil)")
+            print("   - Keychain user ID: \(Keychain.shared.getUserID() != nil)")
             throw APIError.unauthorized
         }
+        
+        print("   - Token expiry check: expired=\(token.isExpired), expiring_soon=\(token.isExpiringSoon)")
+        print("   - Token preview: \(String(token.accessToken.prefix(20)))...")
         
         // If token is expired, clear credentials and require login
         if token.isExpired {
@@ -286,7 +304,12 @@ class AuthManager: ObservableObject {
             print("🔄 [macOS] Token expiring soon, attempting refresh...")
             do {
                 _ = try await refreshToken().async()
-                return currentToken?.accessToken ?? ""
+                guard let refreshedToken = currentToken else {
+                    print("❌ [macOS] Token refresh succeeded but no token available")
+                    throw APIError.unauthorized
+                }
+                print("✅ [macOS] Token refresh successful")
+                return refreshedToken.accessToken
             } catch {
                 print("❌ [macOS] Token refresh failed: \(error)")
                 clearCredentials()
@@ -295,7 +318,7 @@ class AuthManager: ObservableObject {
         }
         
         // Token is valid, return it
-        print("✅ [macOS] Token is valid")
+        print("✅ [macOS] Token is valid, returning for use")
         return token.accessToken
     }
     

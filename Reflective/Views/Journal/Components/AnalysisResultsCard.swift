@@ -254,42 +254,191 @@ struct AnalysisResultsCard: View {
             }
             
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 8) {
-                if let sentiment = metrics.sentimentScore {
-                    metricBadge(
-                        title: "Sentiment",
-                        value: String(format: "%.1f", sentiment),
-                        color: getSentimentColor(sentiment)
-                    )
+                if let sentiment = metrics.sentiment_score {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label {
+                            Text("Sentiment")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                        } icon: {
+                            Image(systemName: "heart.text.square")
+                                .foregroundColor(.red)
+                        }
+                        
+                        HStack(alignment: .bottom, spacing: 4) {
+                            Text(String(format: "%.2f", sentiment))
+                                .font(.title3)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.secondary)
+                            
+                            Text(sentimentDescription(sentiment))
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Text("Range: -1.0 (negative) to +1.0 (positive)")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .opacity(0.8)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
+                    .background(Color.red.opacity(0.1))
+                    .cornerRadius(6)
+                    .help("Measures emotional tone: negative values indicate sad/angry content, positive values indicate happy/optimistic content")
                 }
                 
-                if let vocabulary = metrics.vocabularyDiversityScore {
-                    metricBadge(
-                        title: "Vocabulary",
-                        value: String(format: "%.1f", vocabulary),
-                        color: .blue
-                    )
+                if let vocabulary = metrics.vocabulary_diversity_score {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label {
+                            Text("Vocabulary")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                        } icon: {
+                            Image(systemName: "text.book.closed")
+                                .foregroundColor(.blue)
+                        }
+                        
+                        HStack(alignment: .bottom, spacing: 4) {
+                            Text(String(format: "%.2f", vocabulary))
+                                .font(.title3)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.secondary)
+                            
+                            Text(vocabularyDescription(vocabulary))
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Text("Range: 0.0 (basic) to 1.0 (very diverse)")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .opacity(0.8)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(6)
+                    .help("Measures word variety: higher values indicate richer vocabulary and more unique word usage")
                 }
                 
-                if let complexity = metrics.complexityScore {
-                    metricBadge(
-                        title: "Complexity",
-                        value: String(format: "%.1f", complexity),
-                        color: .purple
-                    )
+                if let complexity = metrics.complexity_score {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label {
+                            Text("Complexity")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                        } icon: {
+                            Image(systemName: "brain.head.profile")
+                                .foregroundColor(.purple)
+                        }
+                        
+                        HStack(alignment: .bottom, spacing: 4) {
+                            Text(String(format: "%.2f", complexity))
+                                .font(.title3)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.secondary)
+                            
+                            Text(complexityDescription(complexity))
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Text("Range: 0.0 (simple) to 1.0 (very complex)")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .opacity(0.8)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
+                    .background(Color.purple.opacity(0.1))
+                    .cornerRadius(6)
+                    .help("Measures sentence structure and language sophistication: higher values indicate more complex thoughts and expressions")
                 }
                 
-                if let readability = metrics.readabilityLevel {
-                    metricBadge(
-                        title: "Readability",
-                        value: String(format: "%.1f", readability),
-                        color: .orange
-                    )
+                if let readability = metrics.readability_level {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label {
+                            Text("Readability")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                        } icon: {
+                            Image(systemName: "doc.text")
+                                .foregroundColor(.orange)
+                        }
+                        
+                        HStack(alignment: .bottom, spacing: 4) {
+                            Text(String(format: "%.1f", readability))
+                                .font(.title3)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.secondary)
+                            
+                            Text(readabilityDescription(readability))
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Text("Range: 1-20+ (grade level equivalent)")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .opacity(0.8)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
+                    .background(Color.orange.opacity(0.1))
+                    .cornerRadius(6)
+                    .help("Measures reading difficulty: lower values are easier to read, higher values require more advanced reading skills")
                 }
             }
         }
         .padding(12)
         .background(Color.green.opacity(0.1))
         .cornerRadius(8)
+    }
+    
+    // MARK: - Helper functions for metric descriptions
+    
+    private func sentimentDescription(_ score: Float) -> String {
+        switch score {
+        case 0.6...1.0: return "Very Positive"
+        case 0.3..<0.6: return "Positive"
+        case 0.1..<0.3: return "Slightly Positive"
+        case -0.1..<0.1: return "Neutral"
+        case -0.3..<(-0.1): return "Slightly Negative"
+        case -0.6..<(-0.3): return "Negative"
+        default: return "Very Negative"
+        }
+    }
+    
+    private func vocabularyDescription(_ score: Float) -> String {
+        switch score {
+        case 0.8...1.0: return "Excellent"
+        case 0.6..<0.8: return "Good"
+        case 0.4..<0.6: return "Moderate"
+        case 0.2..<0.4: return "Basic"
+        default: return "Limited"
+        }
+    }
+    
+    private func complexityDescription(_ score: Float) -> String {
+        switch score {
+        case 0.8...1.0: return "Very Complex"
+        case 0.6..<0.8: return "Complex"
+        case 0.4..<0.6: return "Moderate"
+        case 0.2..<0.4: return "Simple"
+        default: return "Very Simple"
+        }
+    }
+    
+    private func readabilityDescription(_ level: Float) -> String {
+        switch level {
+        case 1.0..<6.0: return "Elementary"
+        case 6.0..<9.0: return "Middle School"
+        case 9.0..<13.0: return "High School"
+        case 13.0..<16.0: return "College"
+        case 16.0..<20.0: return "Graduate"
+        default: return "Professional"
+        }
     }
     
     private func metricBadge(title: String, value: String, color: Color) -> some View {

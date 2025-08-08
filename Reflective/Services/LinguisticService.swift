@@ -125,19 +125,8 @@ struct TextAnalysis: Codable {
     let sentiment_score: Float
     let complexity_score: Float
     let readability_level: Float
-    let emotion_scores: EmotionScores
-    let writing_style_metrics: WritingStyleMetrics
-}
-
-struct EmotionScores: Codable {
-    let emotions: [String: Float]
-    let subjectivity: Float
-}
-
-struct WritingStyleMetrics: Codable {
-    let sentence_types: [String: Float]
-    let style_similarities: [String: Float]?
-    let formality_indicators: [String: Float]?
+    let emotion_scores: EmotionScoresResponse
+    let writing_style_metrics: WritingStyleMetricsResponse
 }
 
 // MARK: - Linguistic Service
@@ -252,14 +241,14 @@ class LinguisticService: ObservableObject {
             // Convert response to LinguisticMetrics
             let metrics = LinguisticMetrics(
                 id: response.id ?? UUID(),
-                logID: response.log_id,
-                vocabularyDiversityScore: response.vocabulary_diversity_score,
-                sentimentScore: response.sentiment_score,
-                complexityScore: response.complexity_score,
-                readabilityLevel: response.readability_level,
-                emotionScores: response.emotion_scores.emotions,
-                writingStyleMetrics: response.writing_style_metrics.sentence_types,
-                processedAt: response.processed_at
+                log_id: response.log_id,
+                vocabulary_diversity_score: response.vocabulary_diversity_score,
+                sentiment_score: response.sentiment_score,
+                complexity_score: response.complexity_score,
+                readability_level: response.readability_level,
+                emotion_scores: response.emotion_scores,
+                writing_style_metrics: response.writing_style_metrics,
+                processed_at: response.processed_at
             )
             
             processingProgress = 1.0

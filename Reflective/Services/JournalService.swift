@@ -442,7 +442,7 @@ class JournalService: ObservableObject {
         // Test if we can fetch logs (requires auth)
         print("\n📋 Testing authenticated logs endpoint...")
         do {
-            let response: [LogResponse] = try await apiClient.get(endpoint: "logs").async()
+            let response: [LogResponse] = try await apiClient.get(endpoint: "logs/").async()
             print("✅ [macOS] Successfully fetched \(response.count) logs")
         } catch {
             print("❌ [macOS] Failed to fetch logs: \(error)")
@@ -457,6 +457,29 @@ class JournalService: ObservableObject {
                 default:
                     print("   → Error type: \(apiError)")
                 }
+            }
+        }
+    }
+    
+    /// Quick authentication debug method that can be called from anywhere
+    func debugAuthenticationState() {
+        print("🔍 [macOS] Quick Authentication Debug:")
+        print("   - AuthManager.isAuthenticated: \(AuthManager.shared.isAuthenticated)")
+        print("   - Token exists in AuthManager: \(AuthManager.shared.currentToken != nil)")
+        print("   - Access token in keychain: \(Keychain.shared.getAccessToken() != nil)")
+        print("   - User ID in keychain: \(Keychain.shared.getUserID() != nil)")
+        
+        if let token = AuthManager.shared.currentToken {
+            print("   - Token valid: \(!token.isExpired)")
+            print("   - Token preview: \(String(token.accessToken.prefix(20)))...")
+        }
+        
+        Task {
+            do {
+                let validToken = try await AuthManager.shared.ensureValidToken()
+                print("   - ensureValidToken: ✅ Success")
+            } catch {
+                print("   - ensureValidToken: ❌ Failed - \(error)")
             }
         }
     }
@@ -585,8 +608,31 @@ class JournalService: ObservableObject {
     }
     
     private func syncEntriesFromServer(status: CompletionStatus?, limit: Int?, offset: Int) async {
+        // Debug authentication state before attempting sync
+        print("🔍 [macOS] Starting syncEntriesFromServer - Debug Info:")
+        print("   - AuthManager.isAuthenticated: \(AuthManager.shared.isAuthenticated)")
+        print("   - Token exists in keychain: \(Keychain.shared.getAccessToken() != nil)")
+        
+        if let token = AuthManager.shared.currentToken {
+            print("   - JWT Token valid: \(!token.isExpired)")
+            print("   - JWT Token expires soon: \(token.isExpiringSoon)")
+            print("   - Token preview: \(String(token.accessToken.prefix(20)))...")
+        } else {
+            print("   - JWT Token: ❌ Not available in AuthManager")
+        }
+        
+        // Test token validation before API call
         do {
-            let response: [LogResponse] = try await apiClient.get(endpoint: "logs").async()
+            let validToken = try await AuthManager.shared.ensureValidToken()
+            print("✅ [macOS] Token validation successful before sync")
+            print("   - Valid token preview: \(String(validToken.prefix(20)))...")
+        } catch {
+            print("❌ [macOS] Token validation failed before sync: \(error)")
+            return // Don't attempt the API call if token validation fails
+        }
+        
+        do {
+            let response: [LogResponse] = try await apiClient.get(endpoint: "logs/").async()
             let serverEntries = response.map { $0.toJournalEntry() }
             
             // Update Core Data with server entries
@@ -599,6 +645,13 @@ class JournalService: ObservableObject {
             
         } catch APIError.unauthorized {
             print("❌ [macOS] Authentication failed when syncing entries - user needs to login")
+            print("🔍 [macOS] Post-failure authentication state:")
+            print("   - AuthManager.isAuthenticated: \(AuthManager.shared.isAuthenticated)")
+            print("   - Token exists in keychain: \(Keychain.shared.getAccessToken() != nil)")
+            
+            // Clear credentials to force re-login
+            AuthManager.shared.clearCredentials()
+            
             // You might want to notify the user they need to login again
         } catch APIError.decodingError(let decodingError) {
             print("❌ [macOS] Failed to decode server response when syncing entries:")

@@ -375,7 +375,7 @@ struct EntryDetailView: View {
                 .font(.headline)
             
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 12) {
-                if let sentiment = metrics.sentimentScore {
+                if let sentiment = metrics.sentiment_score {
                     MetricCard(
                         title: "Sentiment",
                         value: String(format: "%.1f", sentiment),
@@ -384,7 +384,7 @@ struct EntryDetailView: View {
                     )
                 }
                 
-                if let vocabulary = metrics.vocabularyDiversityScore {
+                if let vocabulary = metrics.vocabulary_diversity_score {
                     MetricCard(
                         title: "Vocabulary Diversity",
                         value: String(format: "%.1f", vocabulary),
@@ -393,7 +393,7 @@ struct EntryDetailView: View {
                     )
                 }
                 
-                if let complexity = metrics.complexityScore {
+                if let complexity = metrics.complexity_score {
                     MetricCard(
                         title: "Complexity",
                         value: String(format: "%.1f", complexity),
@@ -402,7 +402,7 @@ struct EntryDetailView: View {
                     )
                 }
                 
-                if let readability = metrics.readabilityLevel {
+                if let readability = metrics.readability_level {
                     MetricCard(
                         title: "Readability",
                         value: String(format: "%.1f", readability),

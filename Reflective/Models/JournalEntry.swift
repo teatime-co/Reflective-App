@@ -135,14 +135,14 @@ enum EntryProcessingStatus: String, Codable, CaseIterable {
 
 struct LinguisticMetrics: Codable, Hashable {
     let id: UUID
-    let logID: UUID
-    let vocabularyDiversityScore: Float?
-    let sentimentScore: Float?
-    let complexityScore: Float?
-    let readabilityLevel: Float?
-    let emotionScores: [String: Float]?
-    let writingStyleMetrics: [String: Float]?
-    let processedAt: Date
+    let log_id: UUID
+    let vocabulary_diversity_score: Float?
+    let sentiment_score: Float?
+    let complexity_score: Float?
+    let readability_level: Float?
+    let emotion_scores: EmotionScoresResponse?
+    let writing_style_metrics: WritingStyleMetricsResponse?
+    let processed_at: Date
 }
 
 // MARK: - API Response Models
@@ -171,12 +171,12 @@ struct LinguisticMetricsResponse: Codable {
 }
 
 // Response models matching the actual API structure
-struct EmotionScoresResponse: Codable {
+struct EmotionScoresResponse: Codable, Hashable {
     let emotions: [String: Float]
     let subjectivity: Float
 }
 
-struct WritingStyleMetricsResponse: Codable {
+struct WritingStyleMetricsResponse: Codable, Hashable {
     let sentence_types: [String: Float]
     let style_similarities: [String: Float]?
     let formality_indicators: [String: Float]?
