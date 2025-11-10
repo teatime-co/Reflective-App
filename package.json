@@ -1,0 +1,60 @@
+{
+  "name": "reflective-web",
+  "version": "0.1.0",
+  "description": "Local-first journaling app with AI features",
+  "main": "out/main/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "build:mac": "npm run build && electron-builder --mac",
+    "preview": "electron-vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/teatime-co/Reflective-App.git"
+  },
+  "keywords": [
+    "electron",
+    "journaling",
+    "ai",
+    "local-first"
+  ],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/teatime-co/Reflective-App/issues"
+  },
+  "homepage": "https://github.com/teatime-co/Reflective-App#readme",
+  "dependencies": {
+    "@tiptap/extension-placeholder": "^2.27.1",
+    "@tiptap/react": "^2.27.1",
+    "@tiptap/starter-kit": "^2.27.1",
+    "@xenova/transformers": "^2.17.2",
+    "axios": "^1.13.2",
+    "better-sqlite3": "^11.10.0",
+    "compromise": "^14.14.4",
+    "date-fns": "^4.1.0",
+    "electron": "^33.4.11",
+    "hnswlib-node": "^3.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.1",
+    "sentiment": "^5.0.2",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.19.0",
+    "@types/react": "^18.3.26",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^5.1.0",
+    "autoprefixer": "^10.4.21",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^2.3.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.18",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21"
+  }
+}
