@@ -1,5 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
+console.log('[PRELOAD] Preload script starting...')
+
 contextBridge.exposeInMainWorld('electronAPI', {
   // Database IPC handlers (to be implemented in Phase 2)
   db: {
@@ -23,5 +25,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     extractKeywords: (content: string) => ipcRenderer.invoke('ml:extractKeywords', content)
   }
 })
+
+console.log('[PRELOAD] electronAPI exposed successfully')
 
 export {}

@@ -1,17 +1,24 @@
 import { app, BrowserWindow } from 'electron'
 import path from 'path'
+import { initializeDatabase, closeDatabase } from './database/init'
+import { runMigrations } from './database/migrations'
+import { registerDatabaseHandlers } from './ipc/database'
 
 let mainWindow: BrowserWindow | null = null
 
 function createWindow() {
+  const preloadPath = path.join(__dirname, '../preload/index.mjs')
+  console.log('[MAIN] Preload path:', preloadPath)
+  console.log('[MAIN] __dirname:', __dirname)
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     webPreferences: {
-      preload: path.join(__dirname, '../preload/index.js'),
+      preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
+      sandbox: false
     }
   })
 
@@ -28,6 +35,10 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  const db = initializeDatabase()
+  runMigrations(db)
+  registerDatabaseHandlers()
+
   createWindow()
 
   app.on('activate', () => {
@@ -41,4 +52,8 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
   }
+})
+
+app.on('before-quit', () => {
+  closeDatabase()
 })
