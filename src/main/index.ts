@@ -1,10 +1,15 @@
 import { app, BrowserWindow } from 'electron'
 import path from 'path'
-import { initializeDatabase, closeDatabase } from './database/init'
+import { initializeDatabase, closeDatabase, getDatabase } from './database/init'
 import { runMigrations } from './database/migrations'
 import { registerDatabaseHandlers } from './ipc/database'
 import { registerEmbeddingsHandlers } from './ipc/embeddings'
+import { registerMLHandlers } from './ipc/ml'
+import { registerCryptoHandlers } from './ipc/crypto'
+import { registerSyncHandlers } from './ipc/sync'
+import { registerSettingsHandlers } from './ipc/settings'
 import { initPythonService, pythonService } from './services/pythonService'
+import { initializeSyncService, startSyncWorker, stopSyncWorker } from './sync/syncService'
 
 let mainWindow: BrowserWindow | null = null
 let isShuttingDown = false
@@ -42,6 +47,14 @@ app.whenReady().then(async () => {
   runMigrations(db)
   registerDatabaseHandlers()
   registerEmbeddingsHandlers()
+  registerMLHandlers()
+  registerCryptoHandlers()
+  registerSyncHandlers()
+  registerSettingsHandlers()
+
+  initializeSyncService(db)
+  startSyncWorker()
+  console.log('[MAIN] Sync service initialized and worker started')
 
   try {
     console.log('[MAIN] Starting Python embedding service...')
@@ -85,7 +98,10 @@ app.on('before-quit', async (event) => {
     event.preventDefault()
     isShuttingDown = true
 
-    console.log('[MAIN] Shutting down Python service before quit...')
+    console.log('[MAIN] Shutting down services before quit...')
+
+    stopSyncWorker()
+    console.log('[MAIN] Sync worker stopped')
 
     try {
       await pythonService.stop()
@@ -100,6 +116,7 @@ app.on('before-quit', async (event) => {
     isShuttingDown = false
     app.exit(0)
   } else {
+    stopSyncWorker()
     closeDatabase()
   }
 })

@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import type { Entry, NewEntry, UpdateEntry } from '../../types/database';
+import { useSyncStore } from './useSyncStore';
+import { PrivacyTier } from '../../types/settings';
 
 interface EntriesState {
   entries: Entry[];
@@ -63,6 +65,15 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
   createEntry: async (entry: NewEntry) => {
     set({ isLoading: true, error: null });
     try {
+      let sentimentScore = entry.sentiment_score || 0;
+
+      if (entry.content && entry.content.trim().length > 0) {
+        const sentimentResult = await window.electronAPI.ml.analyzeSentiment(entry.content);
+        if (sentimentResult.success && sentimentResult.data) {
+          sentimentScore = sentimentResult.data.comparative;
+        }
+      }
+
       const now = Date.now();
       const result = await window.electronAPI.db.run(
         `INSERT INTO entries (content, word_count, sentiment_score, created_at, updated_at, device_id)
@@ -70,7 +81,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
         [
           entry.content,
           entry.word_count || 0,
-          entry.sentiment_score || 0,
+          sentimentScore,
           now,
           now,
           entry.device_id || null
@@ -90,6 +101,22 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
             currentEntry: newEntry,
             isLoading: false
           }));
+
+          useSyncStore.getState().enqueueSyncOperation({
+            operation: 'CREATE',
+            tableName: 'entries',
+            recordId: newEntry.id,
+            data: {
+              content: newEntry.content,
+              word_count: newEntry.word_count,
+              sentiment_score: newEntry.sentiment_score,
+              created_at: newEntry.created_at,
+              updated_at: newEntry.updated_at,
+            }
+          }).catch(error => {
+            console.error('Failed to enqueue CREATE operation:', error);
+          });
+
           return newEntry;
         }
       }
@@ -111,6 +138,19 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       if (updates.content !== undefined) {
         setParts.push('content = ?');
         values.push(updates.content);
+
+        await window.electronAPI.db.run(
+          'DELETE FROM themes WHERE entry_id = ?',
+          [id]
+        );
+
+        if (updates.content.trim().length > 0 && updates.sentiment_score === undefined) {
+          const sentimentResult = await window.electronAPI.ml.analyzeSentiment(updates.content);
+          if (sentimentResult.success && sentimentResult.data) {
+            setParts.push('sentiment_score = ?');
+            values.push(sentimentResult.data.comparative);
+          }
+        }
       }
       if (updates.word_count !== undefined) {
         setParts.push('word_count = ?');
@@ -135,11 +175,26 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       );
 
       if (result.success) {
-        await get().loadEntries();
-        if (get().currentEntry?.id === id) {
-          await get().getEntry(id);
-        }
-        set({ isLoading: false });
+        set((state) => ({
+          entries: state.entries.map((e) =>
+            e.id === id ? { ...e, ...updates, updated_at: Date.now() } : e
+          ),
+          currentEntry:
+            state.currentEntry?.id === id
+              ? { ...state.currentEntry, ...updates, updated_at: Date.now() }
+              : state.currentEntry,
+          isLoading: false,
+        }));
+
+        useSyncStore.getState().enqueueSyncOperation({
+          operation: 'UPDATE',
+          tableName: 'entries',
+          recordId: id,
+          data: updates
+        }).catch(error => {
+          console.error('Failed to enqueue UPDATE operation:', error);
+        });
+
         return true;
       }
 
@@ -165,6 +220,15 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
           currentEntry: state.currentEntry?.id === id ? null : state.currentEntry,
           isLoading: false
         }));
+
+        useSyncStore.getState().enqueueSyncOperation({
+          operation: 'DELETE',
+          tableName: 'entries',
+          recordId: id
+        }).catch(error => {
+          console.error('Failed to enqueue DELETE operation:', error);
+        });
+
         return true;
       }
 
@@ -302,5 +366,65 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       console.error('[EntriesStore] Errors:', errors);
     }
     return { success, failed, errors };
+  },
+
+  regenerateSentimentForAllEntries: async (onProgress?: (current: number, total: number) => void) => {
+    const entries = get().entries;
+    let success = 0;
+    let failed = 0;
+    let skipped = 0;
+    const errors: Array<{ id: number; error: string }> = [];
+
+    console.log(`[EntriesStore] Regenerating sentiment for ${entries.length} entries`);
+
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i];
+
+      if (!entry.content || entry.content.trim().length === 0) {
+        console.warn(`[EntriesStore] Skipping entry ${entry.id} - empty content`);
+        skipped++;
+        if (onProgress) onProgress(i + 1, entries.length);
+        continue;
+      }
+
+      if (entry.sentiment_score !== 0.0 && entry.sentiment_score !== null) {
+        console.log(`[EntriesStore] Skipping entry ${entry.id} - already has sentiment score`);
+        skipped++;
+        if (onProgress) onProgress(i + 1, entries.length);
+        continue;
+      }
+
+      try {
+        const result = await window.electronAPI.ml.analyzeSentiment(entry.content);
+        if (result.success && result.data) {
+          const sentimentScore = result.data.comparative;
+          await window.electronAPI.db.run(
+            'UPDATE entries SET sentiment_score = ? WHERE id = ?',
+            [sentimentScore, entry.id]
+          );
+          success++;
+          console.log(`[EntriesStore] Updated sentiment for entry ${entry.id}: ${sentimentScore}`);
+        } else {
+          failed++;
+          errors.push({ id: entry.id, error: result.error || 'Unknown error' });
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error(`[EntriesStore] Failed to regenerate sentiment for entry ${entry.id}:`, error);
+        failed++;
+        errors.push({ id: entry.id, error: errorMsg });
+      }
+
+      if (onProgress) onProgress(i + 1, entries.length);
+    }
+
+    console.log(`[EntriesStore] Sentiment regeneration completed: ${success} success, ${failed} failed, ${skipped} skipped`);
+    if (errors.length > 0) {
+      console.error('[EntriesStore] Errors:', errors);
+    }
+
+    await get().loadEntries();
+
+    return { success, failed, skipped, errors };
   }
 }));

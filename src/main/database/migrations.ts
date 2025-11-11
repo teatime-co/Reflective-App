@@ -14,6 +14,44 @@ const migrations: Migration[] = [
       console.log('Migration 1: Initial schema already applied via schema.sql');
     },
   },
+  {
+    version: 2,
+    name: 'add_encryption_columns',
+    up: (db) => {
+      console.log('Migration 2: Adding encryption columns to entries table');
+
+      db.exec(`
+        ALTER TABLE entries ADD COLUMN encrypted_content BLOB;
+      `);
+
+      db.exec(`
+        ALTER TABLE entries ADD COLUMN encrypted_metadata BLOB;
+      `);
+
+      db.exec(`
+        ALTER TABLE entries ADD COLUMN encryption_version INTEGER DEFAULT 1;
+      `);
+
+      console.log('Encryption columns added successfully');
+    },
+  },
+  {
+    version: 3,
+    name: 'add_sync_queue_retry_columns',
+    up: (db) => {
+      console.log('Migration 3: Adding retry_count and failed columns to sync_queue table');
+
+      db.exec(`
+        ALTER TABLE sync_queue ADD COLUMN retry_count INTEGER DEFAULT 0;
+      `);
+
+      db.exec(`
+        ALTER TABLE sync_queue ADD COLUMN failed INTEGER DEFAULT 0;
+      `);
+
+      console.log('Sync queue retry columns added successfully');
+    },
+  },
 ];
 
 export function runMigrations(db: Database.Database): void {

@@ -41,6 +41,8 @@ export interface SyncQueueItem {
   data: string | null;
   created_at: number;
   synced: number;
+  retry_count: number;
+  failed: number;
 }
 
 export interface NewEntry {
