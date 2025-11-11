@@ -48,3 +48,15 @@ Thumbs.db
 *.tmp
 *.temp
 .cache/
+
+# Python service
+python-service/venv/
+python-service/.venv/
+python-service/models/
+python-service/dist/
+python-service/build/
+python-service/resources/
+python-service/__pycache__/
+python-service/*.pyc
+python-service/*.pyo
+python-service/*.spec
