@@ -6,7 +6,11 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
-        external: ['better-sqlite3']
+        external: [
+          'better-sqlite3',
+          '@xenova/transformers',
+          'sharp'
+        ]
       }
     }
   },

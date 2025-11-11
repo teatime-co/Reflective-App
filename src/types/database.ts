@@ -45,7 +45,7 @@ export interface SyncQueueItem {
 
 export interface NewEntry {
   content: string;
-  embedding?: Buffer;
+  embedding?: Uint8Array | Buffer;
   word_count?: number;
   sentiment_score?: number;
   device_id?: string;
@@ -53,7 +53,7 @@ export interface NewEntry {
 
 export interface UpdateEntry {
   content?: string;
-  embedding?: Buffer;
+  embedding?: Uint8Array | Buffer;
   word_count?: number;
   sentiment_score?: number;
   updated_at?: number;

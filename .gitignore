@@ -49,6 +49,12 @@ Thumbs.db
 *.temp
 .cache/
 
+# ML Models (downloaded during build)
+models/
+
+# Build artifacts
+resources/
+
 # Python service
 python-service/venv/
 python-service/.venv/

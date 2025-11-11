@@ -6,6 +6,7 @@ interface EntriesState {
   currentEntry: Entry | null;
   isLoading: boolean;
   error: string | null;
+  isGeneratingEmbedding: boolean;
 
   loadEntries: () => Promise<void>;
   getEntry: (id: number) => Promise<void>;
@@ -13,6 +14,8 @@ interface EntriesState {
   updateEntry: (id: number, updates: UpdateEntry) => Promise<boolean>;
   deleteEntry: (id: number) => Promise<boolean>;
   setCurrentEntry: (entry: Entry | null) => void;
+  generateAndSaveEmbedding: (id: number, content: string) => Promise<boolean>;
+  generateEmbeddingsForAllEntries: (onProgress?: (current: number, total: number) => void) => Promise<{ success: number; failed: number; errors: Array<{ id: number; error: string; contentLength: number }> }>;
 }
 
 export const useEntriesStore = create<EntriesState>((set, get) => ({
@@ -20,6 +23,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
   currentEntry: null,
   isLoading: false,
   error: null,
+  isGeneratingEmbedding: false,
 
   loadEntries: async () => {
     set({ isLoading: true, error: null });
@@ -174,5 +178,129 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
 
   setCurrentEntry: (entry: Entry | null) => {
     set({ currentEntry: entry });
+  },
+
+  generateAndSaveEmbedding: async (id: number, content: string) => {
+    if (!content || content.trim().length === 0) {
+      console.warn(`[generateAndSaveEmbedding] Skipping entry ${id} - empty content`);
+      return false;
+    }
+
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = content;
+    const plainText = tempDiv.textContent || tempDiv.innerText || '';
+
+    if (!plainText || plainText.trim().length === 0) {
+      console.warn(`[generateAndSaveEmbedding] Skipping entry ${id} - no text content after HTML stripping`);
+      return false;
+    }
+
+    console.log(`[generateAndSaveEmbedding] Starting for entry ${id}, plain text length: ${plainText.length} (HTML length: ${content.length})`);
+    set({ isGeneratingEmbedding: true });
+    try {
+      const tagsResult = await window.electronAPI.db.query<Array<{ name: string }>>(
+        `SELECT t.name FROM tags t
+         INNER JOIN entry_tags et ON t.id = et.tag_id
+         WHERE et.entry_id = ?
+         ORDER BY t.name ASC`,
+        [id]
+      );
+
+      let textToEmbed = plainText;
+      if (tagsResult.success && tagsResult.data && tagsResult.data.length > 0) {
+        const tagNames = tagsResult.data.map(t => t.name).join(' ');
+        textToEmbed = `${tagNames}. ${plainText}`;
+        console.log(`[generateAndSaveEmbedding] Including ${tagsResult.data.length} tags: ${tagNames}`);
+      } else {
+        console.log(`[generateAndSaveEmbedding] No tags for entry ${id}`);
+      }
+
+      console.log(`[generateAndSaveEmbedding] Calling main process to generate embedding...`);
+      const embeddingResult = await window.electronAPI.embeddings.generate(textToEmbed);
+
+      if (!embeddingResult.success || !embeddingResult.data) {
+        const errorMsg = embeddingResult.error || 'Failed to generate embedding';
+        console.error(`[generateAndSaveEmbedding] IPC call failed for entry ${id}: ${errorMsg}`);
+        throw new Error(errorMsg);
+      }
+
+      console.log(`[generateAndSaveEmbedding] Main process returned embedding with ${embeddingResult.data.embedding.length} dimensions`);
+
+      const embeddingBuffer = new Float32Array(embeddingResult.data.embedding).buffer;
+
+      console.log(`[generateAndSaveEmbedding] Updating database with embedding...`);
+      const updateResult = await get().updateEntry(id, {
+        embedding: new Uint8Array(embeddingBuffer)
+      });
+
+      if (!updateResult) {
+        console.error(`[generateAndSaveEmbedding] Database update failed for entry ${id}`);
+        set({ isGeneratingEmbedding: false });
+        return false;
+      }
+
+      console.log(`[generateAndSaveEmbedding] Adding to vector index...`);
+      if (embeddingResult.data.embedding) {
+        const addResult = await window.electronAPI.embeddings.addEntry(id, embeddingResult.data.embedding);
+        console.log(`[generateAndSaveEmbedding] Add to index result:`, addResult);
+      }
+
+      set({ isGeneratingEmbedding: false });
+      console.log(`[generateAndSaveEmbedding] Successfully completed for entry ${id}`);
+      return true;
+    } catch (error) {
+      console.error(`[generateAndSaveEmbedding] Error for entry ${id}:`, error);
+      set({ isGeneratingEmbedding: false, error: error instanceof Error ? error.message : 'Unknown error' });
+      return false;
+    }
+  },
+
+  generateEmbeddingsForAllEntries: async (onProgress?: (current: number, total: number) => void) => {
+    const entries = get().entries;
+    let success = 0;
+    let failed = 0;
+    const errors: Array<{ id: number; error: string; contentLength: number }> = [];
+
+    console.log(`[EntriesStore] Generating embeddings for ${entries.length} entries`);
+
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i];
+      const contentLength = entry.content?.length || 0;
+      console.log(`[EntriesStore] Processing entry ${entry.id}, content length: ${contentLength}`);
+
+      if (contentLength === 0) {
+        console.warn(`[EntriesStore] Skipping entry ${entry.id} - empty content`);
+        failed++;
+        errors.push({ id: entry.id, error: 'Empty content', contentLength: 0 });
+        if (onProgress) onProgress(i + 1, entries.length);
+        continue;
+      }
+
+      try {
+        const result = await get().generateAndSaveEmbedding(entry.id, entry.content);
+        if (result) {
+          success++;
+          console.log(`[EntriesStore] Generated embedding for entry ${entry.id} (${success}/${entries.length})`);
+        } else {
+          failed++;
+          const storeError = get().error;
+          const errorDetails = storeError || 'generateAndSaveEmbedding returned false (check console for details)';
+          errors.push({ id: entry.id, error: errorDetails, contentLength });
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error(`[EntriesStore] Failed to generate embedding for entry ${entry.id}:`, error);
+        failed++;
+        errors.push({ id: entry.id, error: errorMsg, contentLength });
+      }
+
+      if (onProgress) onProgress(i + 1, entries.length);
+    }
+
+    console.log(`[EntriesStore] Completed: ${success} success, ${failed} failed`);
+    if (errors.length > 0) {
+      console.error('[EntriesStore] Errors:', errors);
+    }
+    return { success, failed, errors };
   }
 }));

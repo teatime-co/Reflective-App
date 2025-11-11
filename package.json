@@ -9,7 +9,8 @@
     "build": "electron-vite build",
     "build:mac": "npm run build && electron-builder --mac",
     "preview": "electron-vite preview",
-    "postinstall": "electron-rebuild -f -w better-sqlite3"
+    "postinstall": "electron-rebuild -f -w better-sqlite3",
+    "seed": "node scripts/seed-data.mjs"
   },
   "repository": {
     "type": "git",
@@ -27,6 +28,38 @@
     "url": "https://github.com/teatime-co/Reflective-App/issues"
   },
   "homepage": "https://github.com/teatime-co/Reflective-App#readme",
+  "build": {
+    "appId": "com.reflective.app",
+    "productName": "Reflective",
+    "mac": {
+      "target": {
+        "target": "default",
+        "arch": ["arm64"]
+      },
+      "category": "public.app-category.productivity"
+    },
+    "extraResources": [
+      {
+        "from": "resources/python",
+        "to": "python",
+        "filter": ["**/*"]
+      }
+    ],
+    "files": [
+      "out/**/*",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!**/node_modules/*.d.ts",
+      "!**/node_modules/.bin",
+      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
+      "!.editorconfig",
+      "!**/._*",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
+      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
+      "!**/{appveyor.yml,.travis.yml,circle.yml}",
+      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
+    ]
+  },
   "dependencies": {
     "@tiptap/extension-placeholder": "^2.27.1",
     "@tiptap/react": "^2.27.1",
@@ -39,8 +72,8 @@
     "compromise": "^14.14.4",
     "date-fns": "^4.1.0",
     "electron": "^33.4.11",
-    "hnswlib-node": "^3.0.0",
     "lucide-react": "^0.553.0",
+    "onnxruntime-web": "^1.23.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.30.1",

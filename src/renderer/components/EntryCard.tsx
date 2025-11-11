@@ -3,20 +3,26 @@ import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { TagBadge } from './TagBadge';
 import type { Entry, Tag } from '../../types/database';
+import { cn } from '../lib/utils';
 
 interface EntryCardProps {
   entry: Entry;
   tags?: Tag[];
   onClick?: () => void;
+  isVisited?: boolean;
 }
 
-export function EntryCard({ entry, tags = [], onClick }: EntryCardProps) {
+export function EntryCard({ entry, tags = [], onClick, isVisited = false }: EntryCardProps) {
   const excerpt = entry.content.substring(0, 150);
   const hasMore = entry.content.length > 150;
 
   return (
     <Card
-      className="cursor-pointer hover:shadow-md transition-shadow"
+      className={cn(
+        "cursor-pointer transition-all duration-200",
+        "hover:shadow-md hover:-translate-y-0.5",
+        "active:scale-[0.98] active:shadow-sm"
+      )}
       onClick={onClick}
     >
       <CardHeader className="pb-3">

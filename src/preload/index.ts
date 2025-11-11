@@ -11,11 +11,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getStats: () => ipcRenderer.invoke('db:getStats')
   },
 
-  // Embeddings IPC handlers (to be implemented in Phase 4)
+  // Embeddings IPC handlers
   embeddings: {
     generate: (text: string) => ipcRenderer.invoke('embeddings:generate', text),
-    search: (query: string, limit: number) => ipcRenderer.invoke('embeddings:search', query, limit),
-    rebuild: () => ipcRenderer.invoke('embeddings:rebuild')
+    search: (queryEmbedding: number[], limit: number) => ipcRenderer.invoke('embeddings:search', queryEmbedding, limit),
+    addEntry: (entryId: number, embedding: number[]) => ipcRenderer.invoke('embeddings:addEntry', entryId, embedding),
+    rebuild: () => ipcRenderer.invoke('embeddings:rebuild'),
+    getStatus: () => ipcRenderer.invoke('embeddings:getStatus')
   },
 
   // ML IPC handlers (to be implemented in Phase 5)

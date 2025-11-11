@@ -3,8 +3,11 @@ import path from 'path'
 import { initializeDatabase, closeDatabase } from './database/init'
 import { runMigrations } from './database/migrations'
 import { registerDatabaseHandlers } from './ipc/database'
+import { registerEmbeddingsHandlers } from './ipc/embeddings'
+import { initPythonService, pythonService } from './services/pythonService'
 
 let mainWindow: BrowserWindow | null = null
+let isShuttingDown = false
 
 function createWindow() {
   const preloadPath = path.join(__dirname, '../preload/index.mjs')
@@ -34,10 +37,22 @@ function createWindow() {
   })
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   const db = initializeDatabase()
   runMigrations(db)
   registerDatabaseHandlers()
+  registerEmbeddingsHandlers()
+
+  try {
+    console.log('[MAIN] Starting Python embedding service...')
+    const service = initPythonService(8765)
+    await service.start()
+    console.log('[MAIN] Python embedding service started successfully')
+  } catch (error) {
+    console.error('[MAIN] Failed to start Python embedding service:', error)
+    console.error('[MAIN] Embedding features will not be available')
+    console.error('[MAIN] Error details:', error instanceof Error ? error.message : String(error))
+  }
 
   createWindow()
 
@@ -48,12 +63,43 @@ app.whenReady().then(() => {
   })
 })
 
-app.on('window-all-closed', () => {
+process.on('exit', () => {
+  if (pythonService) {
+    console.log('[MAIN] Process exiting, stopping Python service...')
+    pythonService.stop()
+  }
+})
+
+app.on('window-all-closed', async () => {
   if (process.platform !== 'darwin') {
     app.quit()
   }
 })
 
-app.on('before-quit', () => {
-  closeDatabase()
+app.on('before-quit', async (event) => {
+  if (isShuttingDown) {
+    return
+  }
+
+  if (pythonService) {
+    event.preventDefault()
+    isShuttingDown = true
+
+    console.log('[MAIN] Shutting down Python service before quit...')
+
+    try {
+      await pythonService.stop()
+      console.log('[MAIN] Python service stopped successfully')
+    } catch (error) {
+      console.error('[MAIN] Error stopping Python service:', error)
+    }
+
+    closeDatabase()
+    console.log('[MAIN] Database closed')
+
+    isShuttingDown = false
+    app.exit(0)
+  } else {
+    closeDatabase()
+  }
 })

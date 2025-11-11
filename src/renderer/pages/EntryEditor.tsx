@@ -2,19 +2,20 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { EditorToolbar } from '../components/EditorToolbar';
 import { TagBadge } from '../components/TagBadge';
 import { Input } from '../components/ui/input';
-import { Save, Plus, Trash2, ArrowLeft } from 'lucide-react';
+import { Save, Plus, Trash2, ArrowLeft, Sparkles } from 'lucide-react';
 import { useEntriesStore } from '../stores/useEntriesStore';
 import { useTagsStore } from '../stores/useTagsStore';
 
 export function EntryEditor() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { id } = useParams<{ id: string }>();
-  const { currentEntry, getEntry, createEntry, updateEntry, deleteEntry, isLoading } = useEntriesStore();
+  const { currentEntry, getEntry, createEntry, updateEntry, deleteEntry, isLoading, generateAndSaveEmbedding, isGeneratingEmbedding } = useEntriesStore();
   const { tags, entryTags, loadTags, getTagsForEntry, addTagToEntry, removeTagFromEntry, createTag } = useTagsStore();
 
   const [wordCount, setWordCount] = useState(0);
@@ -22,6 +23,7 @@ export function EntryEditor() {
   const [newTagName, setNewTagName] = useState('');
   const [showTagInput, setShowTagInput] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const embeddingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const editor = useEditor({
     extensions: [
@@ -77,6 +79,16 @@ export function EntryEditor() {
       word_count: words,
     });
     setIsSaving(false);
+
+    if (embeddingTimeoutRef.current) {
+      clearTimeout(embeddingTimeoutRef.current);
+    }
+    embeddingTimeoutRef.current = setTimeout(() => {
+      const text = editor?.getText() || '';
+      if (text.trim().length > 20) {
+        generateAndSaveEmbedding(parseInt(id, 10), text);
+      }
+    }, 2000);
   };
 
   const handleSave = async () => {
@@ -117,11 +129,25 @@ export function EntryEditor() {
   const handleAddTag = async (tagId: number) => {
     if (!id) return;
     await addTagToEntry(parseInt(id, 10), tagId);
+
+    if (currentEntry?.content) {
+      console.log('[EntryEditor] Tag added, re-generating embedding in background...');
+      generateAndSaveEmbedding(parseInt(id, 10), currentEntry.content).catch(err =>
+        console.error('[EntryEditor] Background re-embedding failed:', err)
+      );
+    }
   };
 
   const handleRemoveTag = async (tagId: number) => {
     if (!id) return;
     await removeTagFromEntry(parseInt(id, 10), tagId);
+
+    if (currentEntry?.content) {
+      console.log('[EntryEditor] Tag removed, re-generating embedding in background...');
+      generateAndSaveEmbedding(parseInt(id, 10), currentEntry.content).catch(err =>
+        console.error('[EntryEditor] Background re-embedding failed:', err)
+      );
+    }
   };
 
   const handleCreateTag = async () => {
@@ -130,6 +156,13 @@ export function EntryEditor() {
     const tag = await createTag({ name: newTagName.trim() });
     if (tag && id) {
       await addTagToEntry(parseInt(id, 10), tag.id);
+
+      if (currentEntry?.content) {
+        console.log('[EntryEditor] New tag created and added, re-generating embedding in background...');
+        generateAndSaveEmbedding(parseInt(id, 10), currentEntry.content).catch(err =>
+          console.error('[EntryEditor] Background re-embedding failed:', err)
+        );
+      }
     }
     setNewTagName('');
     setShowTagInput(false);
@@ -147,9 +180,22 @@ export function EntryEditor() {
           </h2>
           <span className="text-sm text-slate-500">{wordCount} words</span>
           {isSaving && <span className="text-xs text-slate-400">Saving...</span>}
+          {isGeneratingEmbedding && (
+            <span className="text-xs text-slate-400 flex items-center gap-1">
+              <Sparkles className="h-3 w-3" />
+              Generating embedding...
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => navigate('/entries')}>
+          <Button variant="outline" size="sm" onClick={() => {
+            const from = (location.state as any)?.from;
+            if (from === '/search') {
+              navigate('/search');
+            } else {
+              navigate('/entries');
+            }
+          }}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>

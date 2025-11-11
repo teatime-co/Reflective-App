@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Button } from '../components/ui/button';
@@ -6,11 +6,14 @@ import { EntryCard } from '../components/EntryCard';
 import { PenSquare, RefreshCw } from 'lucide-react';
 import { useEntriesStore } from '../stores/useEntriesStore';
 import { useTagsStore } from '../stores/useTagsStore';
+import { useUIStore } from '../stores/useUIStore';
 
 export function EntryList() {
   const navigate = useNavigate();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const { entries, isLoading, loadEntries, createEntry } = useEntriesStore();
   const { entryTags, getTagsForEntry } = useTagsStore();
+  const { markEntryAsVisited, isEntryVisited } = useUIStore();
 
   useEffect(() => {
     loadEntries();
@@ -22,11 +25,31 @@ export function EntryList() {
     });
   }, [entries]);
 
+  useEffect(() => {
+    const savedScroll = sessionStorage.getItem('entryListScroll');
+    if (savedScroll && scrollContainerRef.current && entries.length > 0) {
+      setTimeout(() => {
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTop = parseInt(savedScroll, 10);
+        }
+      }, 0);
+      sessionStorage.removeItem('entryListScroll');
+    }
+  }, [entries]);
+
   const handleNewEntry = async () => {
     const newEntry = await createEntry({ content: '', word_count: 0 });
     if (newEntry) {
       navigate(`/editor/${newEntry.id}`);
     }
+  };
+
+  const handleEntryClick = (entryId: number) => {
+    if (scrollContainerRef.current) {
+      sessionStorage.setItem('entryListScroll', scrollContainerRef.current.scrollTop.toString());
+    }
+    markEntryAsVisited(entryId);
+    navigate(`/editor/${entryId}`, { state: { from: '/entries' } });
   };
 
   return (
@@ -44,7 +67,7 @@ export function EntryList() {
         </div>
       </div>
 
-      <ScrollArea className="flex-1 p-6">
+      <ScrollArea ref={scrollContainerRef} className="flex-1 p-6">
         {isLoading && entries.length === 0 ? (
           <div className="flex items-center justify-center h-64">
             <p className="text-slate-500">Loading entries...</p>
@@ -68,7 +91,8 @@ export function EntryList() {
                 key={entry.id}
                 entry={entry}
                 tags={entryTags.get(entry.id) || []}
-                onClick={() => navigate(`/editor/${entry.id}`)}
+                onClick={() => handleEntryClick(entry.id)}
+                isVisited={isEntryVisited(entry.id)}
               />
             ))}
           </div>
