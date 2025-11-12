@@ -25,6 +25,7 @@ export function EntryEditor() {
   const [isSaving, setIsSaving] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [showTagInput, setShowTagInput] = useState(false);
+  const [filteredTags, setFilteredTags] = useState<typeof tags>([]);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const embeddingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialLoadRef = useRef(true);
@@ -203,22 +204,49 @@ export function EntryEditor() {
     }
   };
 
-  const handleCreateTag = async () => {
-    if (!newTagName.trim()) return;
+  const handleCreateOrAddTag = async (tagName?: string) => {
+    const name = tagName || newTagName.trim();
+    if (!name) return;
 
-    const tag = await createTag({ name: newTagName.trim() });
-    if (tag && id) {
-      await addTagToEntry(id, tag.id);
+    const existingTag = availableTags.find(t => t.name.toLowerCase() === name.toLowerCase());
 
+    if (existingTag && id) {
+      await addTagToEntry(id, existingTag.id);
       if (currentEntry?.content) {
-        console.log('[EntryEditor] New tag created and added, re-generating embedding in background...');
+        console.log('[EntryEditor] Tag added, re-generating embedding in background...');
         generateAndSaveEmbedding(id, currentEntry.content).catch(err =>
           console.error('[EntryEditor] Background re-embedding failed:', err)
         );
       }
+    } else if (!existingTag) {
+      const tag = await createTag({ name });
+      if (tag && id) {
+        await addTagToEntry(id, tag.id);
+        if (currentEntry?.content) {
+          console.log('[EntryEditor] New tag created and added, re-generating embedding in background...');
+          generateAndSaveEmbedding(id, currentEntry.content).catch(err =>
+            console.error('[EntryEditor] Background re-embedding failed:', err)
+          );
+        }
+      }
     }
+
     setNewTagName('');
     setShowTagInput(false);
+    setFilteredTags([]);
+  };
+
+  const handleTagInputChange = (value: string) => {
+    setNewTagName(value);
+
+    if (value.trim()) {
+      const filtered = availableTags.filter(tag =>
+        tag.name.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredTags(filtered);
+    } else {
+      setFilteredTags([]);
+    }
   };
 
   const handleGenerateThemes = async () => {
@@ -297,48 +325,59 @@ export function EntryEditor() {
               ))}
 
               {showTagInput ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={newTagName}
-                    onChange={(e) => setNewTagName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        handleCreateTag();
-                      } else if (e.key === 'Escape') {
-                        setShowTagInput(false);
-                        setNewTagName('');
-                      }
-                    }}
-                    placeholder="New tag name"
-                    className="h-8 w-32"
-                    autoFocus
-                  />
-                  <Button size="sm" onClick={handleCreateTag}>
-                    Add
-                  </Button>
+                <div className="relative">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={newTagName}
+                      onChange={(e) => handleTagInputChange(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleCreateOrAddTag();
+                        } else if (e.key === 'Escape') {
+                          setShowTagInput(false);
+                          setNewTagName('');
+                          setFilteredTags([]);
+                        }
+                      }}
+                      placeholder="Type tag name..."
+                      className="h-8 w-48"
+                      autoFocus
+                      onBlur={() => {
+                        setTimeout(() => {
+                          setShowTagInput(false);
+                          setNewTagName('');
+                          setFilteredTags([]);
+                        }, 200);
+                      }}
+                    />
+                  </div>
+
+                  {filteredTags.length > 0 && (
+                    <div className="absolute top-full mt-1 w-48 bg-white border border-slate-200 rounded-md shadow-lg z-10 max-h-48 overflow-y-auto">
+                      {filteredTags.map((tag) => (
+                        <button
+                          key={tag.id}
+                          className="w-full text-left px-3 py-2 hover:bg-slate-100 text-sm"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            handleCreateOrAddTag(tag.name);
+                          }}
+                        >
+                          {tag.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ) : (
-                <>
-                  {availableTags.slice(0, 5).map((tag) => (
-                    <Button
-                      key={tag.id}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleAddTag(tag.id)}
-                    >
-                      <Plus className="h-3 w-3 mr-1" />
-                      {tag.name}
-                    </Button>
-                  ))}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowTagInput(true)}
-                  >
-                    <Plus className="h-3 w-3 mr-1" />
-                    New Tag
-                  </Button>
-                </>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowTagInput(true)}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add Tag
+                </Button>
               )}
             </div>
           </div>

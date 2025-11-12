@@ -13,8 +13,15 @@ interface EntryCardProps {
 }
 
 export function EntryCard({ entry, tags = [], onClick, isVisited = false }: EntryCardProps) {
-  const excerpt = entry.content.substring(0, 150);
-  const hasMore = entry.content.length > 150;
+  const stripHtml = (html: string) => {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || '';
+  };
+
+  const plainText = stripHtml(entry.content);
+  const excerpt = plainText.substring(0, 150);
+  const hasMore = plainText.length > 150;
 
   return (
     <Card

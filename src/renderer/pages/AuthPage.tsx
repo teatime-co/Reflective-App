@@ -20,23 +20,6 @@ export function AuthPage() {
           <p className="text-slate-500">Your private journaling companion</p>
         </div>
 
-        <div className="flex gap-2 p-1 bg-slate-100 rounded-lg">
-          <Button
-            variant={mode === 'login' ? 'default' : 'ghost'}
-            className="flex-1"
-            onClick={() => setMode('login')}
-          >
-            Login
-          </Button>
-          <Button
-            variant={mode === 'register' ? 'default' : 'ghost'}
-            className="flex-1"
-            onClick={() => setMode('register')}
-          >
-            Register
-          </Button>
-        </div>
-
         {mode === 'login' ? (
           <LoginForm onSuccess={handleSuccess} onRegisterClick={() => setMode('register')} />
         ) : (

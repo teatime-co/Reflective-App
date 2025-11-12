@@ -43,28 +43,23 @@ export function Sidebar() {
 
   return (
     <>
-      <button
-        onClick={toggleSidebar}
-        className="fixed top-4 left-4 z-50 p-2 rounded-md hover:bg-slate-100 transition-colors"
-      >
-        <Menu className="h-5 w-5" />
-      </button>
-
       <aside
         className={cn(
-          'fixed left-0 top-0 h-screen bg-white border-r border-slate-200 transition-transform duration-300 z-40',
-          sidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full w-0'
+          'fixed left-0 top-0 h-screen bg-white border-r border-slate-200 transition-all duration-300 z-40',
+          sidebarOpen ? 'w-64' : 'w-16'
         )}
       >
         <div className="flex flex-col h-full">
-          <div className="p-6 pt-16">
-            <h1 className="text-2xl font-bold text-slate-900">Reflective</h1>
-            <p className="text-sm text-slate-500 mt-1">Your journaling companion</p>
+          <div className={cn('flex items-center transition-all duration-300', sidebarOpen ? 'p-4' : 'p-2 justify-center')}>
+            <button
+              onClick={toggleSidebar}
+              className="p-2 rounded-md hover:bg-slate-100 transition-colors"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
           </div>
 
-          <Separator />
-
-          <ScrollArea className="flex-1 px-3 py-4">
+          <ScrollArea className={cn('flex-1 py-4 transition-all duration-300', sidebarOpen ? 'px-3' : 'px-2')}>
             <nav className="space-y-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
@@ -74,7 +69,8 @@ export function Sidebar() {
                     to={item.to}
                     className={({ isActive }) =>
                       cn(
-                        'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                        'flex items-center gap-3 py-2 rounded-md text-sm font-medium transition-colors',
+                        sidebarOpen ? 'px-3' : 'px-0 justify-center',
                         isActive
                           ? 'bg-slate-900 text-white'
                           : 'text-slate-700 hover:bg-slate-100'
@@ -82,7 +78,7 @@ export function Sidebar() {
                     }
                   >
                     <Icon className="h-4 w-4" />
-                    {item.label}
+                    {sidebarOpen && item.label}
                   </NavLink>
                 );
               })}
@@ -94,7 +90,8 @@ export function Sidebar() {
                     to="/conflicts"
                     className={({ isActive }) =>
                       cn(
-                        'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                        'flex items-center gap-3 py-2 rounded-md text-sm font-medium transition-colors',
+                        sidebarOpen ? 'px-3' : 'px-0 justify-center',
                         isActive
                           ? 'bg-slate-900 text-white'
                           : 'text-slate-700 hover:bg-slate-100'
@@ -102,8 +99,12 @@ export function Sidebar() {
                     }
                   >
                     <AlertCircle className="h-4 w-4" />
-                    Conflicts
-                    <ConflictBadge count={conflictCount} />
+                    {sidebarOpen && (
+                      <>
+                        Conflicts
+                        <ConflictBadge count={conflictCount} />
+                      </>
+                    )}
                   </NavLink>
                 </>
               )}

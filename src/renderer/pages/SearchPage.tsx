@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent } from '../components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -19,6 +19,12 @@ export function SearchPage() {
   const navigate = useNavigate();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
+
+  const stripHtml = (html: string) => {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || '';
+  };
   const {
     query,
     setQuery,
@@ -213,45 +219,48 @@ export function SearchPage() {
 
         {!isSearching && searchResults.length > 0 && (
           <div className="space-y-4">
-            {searchResults.map((result) => (
-              <Card
-                key={result.entryId}
-                className={cn(
-                  "cursor-pointer transition-all duration-200",
-                  "hover:shadow-md hover:-translate-y-0.5",
-                  "active:scale-[0.98] active:shadow-sm"
-                )}
-                onClick={() => handleResultClick(result.entryId)}
-              >
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-slate-500">
-                        {format(new Date(result.entry.created_at), 'MMM d, yyyy')}
-                      </span>
-                      <Badge variant="secondary" className="text-xs">
-                        {Math.round(result.score * 100)}% match
-                      </Badge>
-                    </div>
-                    <span className="text-xs text-slate-400">
-                      {result.entry.word_count} words
-                    </span>
-                  </div>
+            {searchResults.map((result) => {
+              const plainText = stripHtml(result.preview);
 
-                  <p className="text-sm text-slate-700 line-clamp-3">
-                    {result.preview}
-                  </p>
-
-                  {entryTags.get(result.entryId)?.length ? (
-                    <div className="flex flex-wrap gap-2">
-                      {entryTags.get(result.entryId)!.map((tag) => (
-                        <TagBadge key={tag.id} tag={tag} />
-                      ))}
+              return (
+                <Card
+                  key={result.entryId}
+                  className={cn(
+                    "cursor-pointer transition-all duration-200",
+                    "hover:shadow-md hover:-translate-y-0.5",
+                    "active:scale-[0.98] active:shadow-sm"
+                  )}
+                  onClick={() => handleResultClick(result.entryId)}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-sm text-slate-500">
+                          {format(new Date(result.entry.created_at), 'MMM dd, yyyy • h:mm a')}
+                        </CardTitle>
+                        <Badge variant="secondary" className="text-xs">
+                          {Math.round(result.score * 100)}% match
+                        </Badge>
+                      </div>
+                      <span className="text-xs text-slate-400">{result.entry.word_count} words</span>
                     </div>
-                  ) : null}
-                </CardContent>
-              </Card>
-            ))}
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-sm text-slate-700 line-clamp-3">
+                      {plainText}
+                    </p>
+
+                    {entryTags.get(result.entryId)?.length ? (
+                      <div className="flex flex-wrap gap-2">
+                        {entryTags.get(result.entryId)!.map((tag) => (
+                          <TagBadge key={tag.id} tag={tag} />
+                        ))}
+                      </div>
+                    ) : null}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
