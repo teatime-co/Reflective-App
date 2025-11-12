@@ -2,22 +2,23 @@
 
 A local-first, AI-powered journaling application built with Electron, React, and TypeScript. Features end-to-end encryption, semantic search, and multi-device sync with conflict resolution.
 
-[Demo Video](https://youtu.be/5khCanOZAhw)
+\>> [Live Demo](https://youtu.be/5khCanOZAhw) <<
 
-Entries
+\>> [Reflective Server](https://github.com/teatime-co/Reflective-Server) <<
+
+## Entries
 
 ![Entries](./screens/entries_screen.png)
 
-Search
+## Search
 
 ![Search](./screens/search_screen.png)
 
-Insights
-
+## Insights
 
 ![Insights](./screens/insights_screen.png)
 
-Settings/Sync
+## Settings/Sync
 
 ![Settings](./screens/settings_screen.png)
 
