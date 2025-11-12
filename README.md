@@ -282,25 +282,25 @@ See [scripts/README.md](scripts/README.md) for detailed documentation.
 
 ```
 reflective-web/
-   src/
-      main/
-         database/
-         embeddings/
-         crypto/
-         sync/
-         settings/
-         ipc/
-      preload/
-      renderer/
-         pages/
-         components/
-         stores/
-         api/
-         utils/
-      types/
-   scripts/
-   electron-vite.config.ts
-   package.json
+├── src/
+│   ├── main/
+│   │   ├── database/
+│   │   ├── embeddings/
+│   │   ├── crypto/
+│   │   ├── sync/
+│   │   ├── settings/
+│   │   └── ipc/
+│   ├── preload/
+│   ├── renderer/
+│   │   ├── pages/
+│   │   ├── components/
+│   │   ├── stores/
+│   │   ├── api/
+│   │   └── utils/
+│   └── types/
+├── scripts/
+├── electron-vite.config.ts
+└── package.json
 ```
 
 ## Backend Integration
