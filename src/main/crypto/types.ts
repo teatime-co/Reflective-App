@@ -4,10 +4,15 @@ export interface EncryptedData {
   authTag: string;    // hex-encoded authentication tag
 }
 
-export interface HEContext {
+export interface HEContextParams {
   poly_modulus_degree: number;
   coeff_mod_bit_sizes: number[];
   scale: number;
+}
+
+export interface HEContext {
+  context_params: HEContextParams;
+  serialized_context: string;
 }
 
 export interface HEKeys {

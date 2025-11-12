@@ -3,6 +3,7 @@ import type { SearchResult, IndexStatus } from '../../types/embeddings'
 import type { ThemeClassification, SentimentResult, KeywordResult } from '../../types/ml'
 import type { EncryptedData, HEContext } from '../../main/crypto/types'
 import type { AppSettings, SettingsUpdateResult } from '../../types/settings'
+import type { LocalConflict } from '../../types/conflicts'
 
 export interface ElectronAPI {
   db: {
@@ -58,7 +59,7 @@ export interface ElectronAPI {
     enqueue: (payload: {
       operation: 'CREATE' | 'UPDATE' | 'DELETE'
       tableName: string
-      recordId: number
+      recordId: string
       data?: Record<string, unknown>
     }) => Promise<{
       success: boolean
@@ -99,6 +100,47 @@ export interface ElectronAPI {
     get: () => Promise<SettingsUpdateResult>
     update: (partial: Partial<AppSettings>) => Promise<SettingsUpdateResult>
     reset: () => Promise<SettingsUpdateResult>
+  }
+  auth: {
+    setToken: (token: string) => Promise<{ success: boolean; error?: string }>
+    getToken: () => Promise<{ success: boolean; data?: string | null; error?: string }>
+    clearToken: () => Promise<{ success: boolean; error?: string }>
+    setUser: (user: any) => Promise<{ success: boolean; error?: string }>
+    getUser: () => Promise<{ success: boolean; data?: any; error?: string }>
+    clearUser: () => Promise<{ success: boolean; error?: string }>
+  }
+  conflicts: {
+    fetch: () => Promise<{
+      success: boolean
+      data?: { conflicts?: LocalConflict[] }
+      error?: string
+    }>
+    fetchFromBackend: () => Promise<{
+      success: boolean
+      data?: { conflicts?: LocalConflict[] }
+      error?: string
+    }>
+    resolve: (
+      conflictId: string,
+      resolution: 'local' | 'remote' | 'merged',
+      mergedData?: {
+        encryptedContent: string
+        iv: string
+        tag: string
+      }
+    ) => Promise<{
+      success: boolean
+      error?: string
+    }>
+    getCount: () => Promise<{
+      success: boolean
+      data?: { count?: number }
+      error?: string
+    }>
+    delete: (conflictId: string) => Promise<{
+      success: boolean
+      error?: string
+    }>
   }
 }
 

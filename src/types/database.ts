@@ -1,5 +1,5 @@
 export interface Entry {
-  id: number;
+  id: string;
   content: string;
   embedding: Buffer | null;
   created_at: number;
@@ -20,14 +20,14 @@ export interface Tag {
 
 export interface EntryTag {
   id: number;
-  entry_id: number;
+  entry_id: string;
   tag_id: number;
   created_at: number;
 }
 
 export interface Theme {
   id: number;
-  entry_id: number;
+  entry_id: string;
   theme_name: string;
   confidence: number;
   created_at: number;
@@ -37,7 +37,7 @@ export interface SyncQueueItem {
   id: number;
   operation: 'CREATE' | 'UPDATE' | 'DELETE';
   table_name: string;
-  record_id: number;
+  record_id: string;
   data: string | null;
   created_at: number;
   synced: number;
@@ -67,7 +67,7 @@ export interface NewTag {
 }
 
 export interface NewTheme {
-  entry_id: number;
+  entry_id: string;
   theme_name: string;
   confidence: number;
 }
@@ -90,6 +90,6 @@ export interface QueryResult<T> {
 export interface RunResult {
   success: boolean;
   changes?: number;
-  lastInsertRowid?: number;
+  lastInsertRowid?: number | string;
   error?: string;
 }

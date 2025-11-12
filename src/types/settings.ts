@@ -10,6 +10,13 @@ export interface AppSettings {
   lastSyncTime: number | null;
   deviceId: string;
   syncEnabled: boolean;
+  authToken?: string;
+  currentUser?: {
+    id: string;
+    email: string;
+    display_name: string;
+    privacy_tier: string;
+  };
 }
 
 export interface SettingsUpdateResult {

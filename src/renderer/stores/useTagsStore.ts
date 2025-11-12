@@ -3,17 +3,17 @@ import type { Tag, NewTag, EntryTag } from '../../types/database';
 
 interface TagsState {
   tags: Tag[];
-  entryTags: Map<number, Tag[]>;
+  entryTags: Map<string, Tag[]>;
   isLoading: boolean;
   error: string | null;
 
   loadTags: () => Promise<void>;
-  getTagsForEntry: (entryId: number) => Promise<void>;
+  getTagsForEntry: (entryId: string) => Promise<void>;
   createTag: (tag: NewTag) => Promise<Tag | null>;
   updateTag: (id: number, updates: Partial<Tag>) => Promise<boolean>;
   deleteTag: (id: number) => Promise<boolean>;
-  addTagToEntry: (entryId: number, tagId: number) => Promise<boolean>;
-  removeTagFromEntry: (entryId: number, tagId: number) => Promise<boolean>;
+  addTagToEntry: (entryId: string, tagId: number) => Promise<boolean>;
+  removeTagFromEntry: (entryId: string, tagId: number) => Promise<boolean>;
 }
 
 export const useTagsStore = create<TagsState>((set, get) => ({
@@ -39,7 +39,7 @@ export const useTagsStore = create<TagsState>((set, get) => ({
     }
   },
 
-  getTagsForEntry: async (entryId: number) => {
+  getTagsForEntry: async (entryId: string) => {
     set({ isLoading: true, error: null });
     try {
       const result = await window.electronAPI.db.query<Tag[]>(
@@ -164,7 +164,7 @@ export const useTagsStore = create<TagsState>((set, get) => ({
     }
   },
 
-  addTagToEntry: async (entryId: number, tagId: number) => {
+  addTagToEntry: async (entryId: string, tagId: number) => {
     set({ isLoading: true, error: null });
     try {
       const result = await window.electronAPI.db.run(
@@ -192,7 +192,7 @@ export const useTagsStore = create<TagsState>((set, get) => ({
     }
   },
 
-  removeTagFromEntry: async (entryId: number, tagId: number) => {
+  removeTagFromEntry: async (entryId: string, tagId: number) => {
     set({ isLoading: true, error: null });
     try {
       const result = await window.electronAPI.db.run(

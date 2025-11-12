@@ -41,7 +41,7 @@ export function registerDatabaseHandlers(): void {
       return {
         success: true,
         changes: result.changes,
-        lastInsertRowid: Number(result.lastInsertRowid),
+        lastInsertRowid: result.lastInsertRowid,
       } as RunResult;
     } catch (error) {
       console.error('Database run error:', error);
@@ -65,7 +65,7 @@ export function registerDatabaseHandlers(): void {
           results.push({
             success: true,
             changes: result.changes,
-            lastInsertRowid: Number(result.lastInsertRowid),
+            lastInsertRowid: result.lastInsertRowid,
           });
         }
       });

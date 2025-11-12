@@ -79,7 +79,7 @@ export function SearchPage() {
     handleSearch(newQuery);
   };
 
-  const handleResultClick = (entryId: number) => {
+  const handleResultClick = (entryId: string) => {
     if (scrollContainerRef.current) {
       sessionStorage.setItem('searchPageScroll', scrollContainerRef.current.scrollTop.toString());
     }

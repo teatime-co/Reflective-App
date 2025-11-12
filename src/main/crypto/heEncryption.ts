@@ -1,7 +1,12 @@
 import SEAL from 'node-seal';
 import axios from 'axios';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import { HEContext, HEKeys, EncryptedMetric } from './types';
 import { saveKey, getKeyString, KEY_NAMES } from './keyManager';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let sealInstance: any = null;
 let context: any = null;
@@ -14,12 +19,66 @@ let secretKey: any = null;
 export async function initializeSEAL(): Promise<void> {
   if (sealInstance) return;
 
-  sealInstance = await SEAL();
+  console.log('[HE] Initializing SEAL...');
+  console.log('[HE] __dirname:', __dirname);
+  console.log('[HE] process.cwd():', process.cwd());
+
+  sealInstance = await SEAL({
+    locateFile: (file: string) => {
+      const possiblePaths = [
+        path.join(__dirname, file),
+        path.join(process.cwd(), 'out', 'main', file),
+        path.join(process.cwd(), 'node_modules', 'node-seal', file),
+      ];
+
+      console.log('[HE] Searching for WASM file:', file);
+
+      for (const wasmPath of possiblePaths) {
+        console.log('[HE] Checking path:', wasmPath);
+        if (fs.existsSync(wasmPath)) {
+          console.log('[HE] Found WASM file at:', wasmPath);
+          return wasmPath;
+        }
+      }
+
+      console.error('[HE] WASM file not found in any of these locations:');
+      possiblePaths.forEach(p => console.error('[HE]   -', p));
+      throw new Error(`WASM file not found: ${file}`);
+    }
+  });
+
+  console.log('[HE] SEAL initialized successfully');
 }
 
 export async function fetchHEContext(backendUrl: string = 'http://localhost:8000'): Promise<HEContext> {
-  const response = await axios.get(`${backendUrl}/api/encryption/context`);
-  return response.data;
+  const url = `${backendUrl}/api/encryption/context`;
+  console.log('[HE] Fetching context from:', url);
+
+  try {
+    const response = await axios.get(url, {
+      timeout: 10000
+    });
+    console.log('[HE] Context response status:', response.status);
+    console.log('[HE] Context data:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('[HE] Failed to fetch context from backend');
+
+    if (axios.isAxiosError(error)) {
+      if (error.code === 'ECONNREFUSED') {
+        throw new Error(`Backend not reachable at ${backendUrl}. Is the server running?`);
+      }
+      if (error.code === 'ETIMEDOUT') {
+        throw new Error(`Backend request timed out at ${backendUrl}`);
+      }
+      if (error.response) {
+        throw new Error(`Backend error: ${error.response.status} - ${error.response.data?.detail || error.response.statusText}`);
+      }
+      throw new Error(`Network error: ${error.message}`);
+    }
+
+    throw error;
+  }
 }
 
 export async function initializeContext(heContext: HEContext): Promise<void> {
@@ -29,11 +88,11 @@ export async function initializeContext(heContext: HEContext): Promise<void> {
   const securityLevel = sealInstance.SecurityLevel.tc128;
 
   const parms = sealInstance.EncryptionParameters(schemeType);
-  parms.setPolyModulusDegree(heContext.poly_modulus_degree);
+  parms.setPolyModulusDegree(heContext.context_params.poly_modulus_degree);
   parms.setCoeffModulus(
     sealInstance.CoeffModulus.Create(
-      heContext.poly_modulus_degree,
-      Int32Array.from(heContext.coeff_mod_bit_sizes)
+      heContext.context_params.poly_modulus_degree,
+      Int32Array.from(heContext.context_params.coeff_mod_bit_sizes)
     )
   );
 

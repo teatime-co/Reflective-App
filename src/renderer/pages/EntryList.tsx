@@ -44,7 +44,7 @@ export function EntryList() {
     }
   };
 
-  const handleEntryClick = (entryId: number) => {
+  const handleEntryClick = (entryId: string) => {
     if (scrollContainerRef.current) {
       sessionStorage.setItem('entryListScroll', scrollContainerRef.current.scrollTop.toString());
     }

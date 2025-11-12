@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { Entry, NewEntry, UpdateEntry } from '../../types/database';
 import { useSyncStore } from './useSyncStore';
 import { PrivacyTier } from '../../types/settings';
+import { v4 as uuidv4 } from 'uuid';
 
 interface EntriesState {
   entries: Entry[];
@@ -11,13 +12,13 @@ interface EntriesState {
   isGeneratingEmbedding: boolean;
 
   loadEntries: () => Promise<void>;
-  getEntry: (id: number) => Promise<void>;
+  getEntry: (id: string) => Promise<void>;
   createEntry: (entry: NewEntry) => Promise<Entry | null>;
-  updateEntry: (id: number, updates: UpdateEntry) => Promise<boolean>;
-  deleteEntry: (id: number) => Promise<boolean>;
+  updateEntry: (id: string, updates: UpdateEntry) => Promise<boolean>;
+  deleteEntry: (id: string) => Promise<boolean>;
   setCurrentEntry: (entry: Entry | null) => void;
-  generateAndSaveEmbedding: (id: number, content: string) => Promise<boolean>;
-  generateEmbeddingsForAllEntries: (onProgress?: (current: number, total: number) => void) => Promise<{ success: number; failed: number; errors: Array<{ id: number; error: string; contentLength: number }> }>;
+  generateAndSaveEmbedding: (id: string, content: string) => Promise<boolean>;
+  generateEmbeddingsForAllEntries: (onProgress?: (current: number, total: number) => void) => Promise<{ success: number; failed: number; errors: Array<{ id: string; error: string; contentLength: number }> }>;
 }
 
 export const useEntriesStore = create<EntriesState>((set, get) => ({
@@ -44,7 +45,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
     }
   },
 
-  getEntry: async (id: number) => {
+  getEntry: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
       const result = await window.electronAPI.db.query<Entry[]>(
@@ -75,10 +76,13 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       }
 
       const now = Date.now();
+      const entryId = uuidv4();
+
       const result = await window.electronAPI.db.run(
-        `INSERT INTO entries (content, word_count, sentiment_score, created_at, updated_at, device_id)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO entries (id, content, word_count, sentiment_score, created_at, updated_at, device_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
+          entryId,
           entry.content,
           entry.word_count || 0,
           sentimentScore,
@@ -88,10 +92,10 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
         ]
       );
 
-      if (result.success && result.lastInsertRowid) {
+      if (result.success) {
         const newEntryResult = await window.electronAPI.db.query<Entry[]>(
           'SELECT * FROM entries WHERE id = ?',
-          [result.lastInsertRowid]
+          [entryId]
         );
 
         if (newEntryResult.success && newEntryResult.data && newEntryResult.data.length > 0) {
@@ -129,7 +133,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
     }
   },
 
-  updateEntry: async (id: number, updates: UpdateEntry) => {
+  updateEntry: async (id: string, updates: UpdateEntry) => {
     set({ isLoading: true, error: null });
     try {
       const setParts: string[] = [];
@@ -206,7 +210,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
     }
   },
 
-  deleteEntry: async (id: number) => {
+  deleteEntry: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
       const result = await window.electronAPI.db.run(
@@ -244,7 +248,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
     set({ currentEntry: entry });
   },
 
-  generateAndSaveEmbedding: async (id: number, content: string) => {
+  generateAndSaveEmbedding: async (id: string, content: string) => {
     if (!content || content.trim().length === 0) {
       console.warn(`[generateAndSaveEmbedding] Skipping entry ${id} - empty content`);
       return false;
@@ -323,7 +327,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
     const entries = get().entries;
     let success = 0;
     let failed = 0;
-    const errors: Array<{ id: number; error: string; contentLength: number }> = [];
+    const errors: Array<{ id: string; error: string; contentLength: number }> = [];
 
     console.log(`[EntriesStore] Generating embeddings for ${entries.length} entries`);
 
@@ -373,7 +377,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
     let success = 0;
     let failed = 0;
     let skipped = 0;
-    const errors: Array<{ id: number; error: string }> = [];
+    const errors: Array<{ id: string; error: string }> = [];
 
     console.log(`[EntriesStore] Regenerating sentiment for ${entries.length} entries`);
 

@@ -42,6 +42,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
     keys: {
       generate: (backendUrl?: string) => ipcRenderer.invoke('crypto:keys:generate', backendUrl),
+      generateHE: (backendUrl?: string) => ipcRenderer.invoke('crypto:keys:generateHE', backendUrl),
       load: () => ipcRenderer.invoke('crypto:keys:load'),
       exists: (keyName: string) => ipcRenderer.invoke('crypto:keys:exists', keyName),
       delete: (keyName: string) => ipcRenderer.invoke('crypto:keys:delete', keyName),
@@ -63,7 +64,33 @@ contextBridge.exposeInMainWorld('electronAPI', {
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),
     update: (partial: any) => ipcRenderer.invoke('settings:update', partial),
-    reset: () => ipcRenderer.invoke('settings:reset')
+    reset: () => ipcRenderer.invoke('settings:reset'),
+    onTierTransitionProgress: (callback: (progress: any) => void) => {
+      ipcRenderer.on('settings:tier-transition-progress', (_event, progress) => callback(progress));
+      return () => ipcRenderer.removeAllListeners('settings:tier-transition-progress');
+    }
+  },
+
+  // Auth IPC handlers
+  auth: {
+    setToken: (token: string) => ipcRenderer.invoke('auth:setToken', token),
+    getToken: () => ipcRenderer.invoke('auth:getToken'),
+    clearToken: () => ipcRenderer.invoke('auth:clearToken'),
+    setUser: (user: any) => ipcRenderer.invoke('auth:setUser', user),
+    getUser: () => ipcRenderer.invoke('auth:getUser'),
+    clearUser: () => ipcRenderer.invoke('auth:clearUser'),
+    updatePrivacyTier: (token: string, tier: string, hePublicKey?: string | null) =>
+      ipcRenderer.invoke('auth:updatePrivacyTier', token, tier, hePublicKey)
+  },
+
+  // Conflicts IPC handlers
+  conflicts: {
+    fetch: () => ipcRenderer.invoke('conflicts:fetch'),
+    fetchFromBackend: () => ipcRenderer.invoke('conflicts:fetchFromBackend'),
+    resolve: (conflictId: string, resolution: 'local' | 'remote' | 'merged', mergedData?: any) =>
+      ipcRenderer.invoke('conflicts:resolve', conflictId, resolution, mergedData),
+    getCount: () => ipcRenderer.invoke('conflicts:getCount'),
+    delete: (conflictId: string) => ipcRenderer.invoke('conflicts:delete', conflictId)
   }
 })
 

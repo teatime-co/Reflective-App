@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { ScrollArea } from './ui/scroll-area';
 import { Separator } from './ui/separator';
@@ -7,9 +7,13 @@ import {
   Search,
   Tags,
   BarChart3,
-  Menu
+  Settings,
+  Menu,
+  AlertCircle
 } from 'lucide-react';
 import { useUIStore } from '../stores/useUIStore';
+import { useConflictsStore } from '../stores/useConflictsStore';
+import { ConflictBadge } from './ConflictBadge';
 import { cn } from '../lib/utils';
 
 const navItems = [
@@ -17,10 +21,25 @@ const navItems = [
   { to: '/search', icon: Search, label: 'Search' },
   { to: '/tags', icon: Tags, label: 'Tags' },
   { to: '/insights', icon: BarChart3, label: 'Insights' },
+  { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 export function Sidebar() {
   const { sidebarOpen, toggleSidebar } = useUIStore();
+  const { getConflictCount } = useConflictsStore();
+  const [conflictCount, setConflictCount] = useState(0);
+
+  useEffect(() => {
+    const updateCount = async () => {
+      const count = await getConflictCount();
+      setConflictCount(count);
+    };
+
+    updateCount();
+    const interval = setInterval(updateCount, 30000);
+
+    return () => clearInterval(interval);
+  }, [getConflictCount]);
 
   return (
     <>
@@ -67,6 +86,27 @@ export function Sidebar() {
                   </NavLink>
                 );
               })}
+
+              {conflictCount > 0 && (
+                <>
+                  <Separator className="my-2" />
+                  <NavLink
+                    to="/conflicts"
+                    className={({ isActive }) =>
+                      cn(
+                        'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                        isActive
+                          ? 'bg-slate-900 text-white'
+                          : 'text-slate-700 hover:bg-slate-100'
+                      )
+                    }
+                  >
+                    <AlertCircle className="h-4 w-4" />
+                    Conflicts
+                    <ConflictBadge count={conflictCount} />
+                  </NavLink>
+                </>
+              )}
             </nav>
           </ScrollArea>
         </div>

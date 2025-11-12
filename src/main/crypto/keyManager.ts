@@ -1,5 +1,8 @@
-import keytar from 'keytar';
+import { createRequire } from 'module';
 import { generateKey } from './aesEncryption';
+
+const require = createRequire(import.meta.url);
+const keytar = require('keytar');
 
 const SERVICE_NAME = 'reflective';
 

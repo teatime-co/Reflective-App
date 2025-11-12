@@ -41,3 +41,7 @@ export function resetSettings(): AppSettings {
 export function getSetting<K extends keyof AppSettings>(key: K): AppSettings[K] {
   return settingsStore.get(key);
 }
+
+export function deleteSetting<K extends keyof AppSettings>(key: K): void {
+  settingsStore.delete(key);
+}

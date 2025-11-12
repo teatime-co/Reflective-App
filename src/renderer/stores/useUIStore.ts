@@ -5,7 +5,7 @@ interface UIState {
   currentModal: string | null;
   isSearchOpen: boolean;
   commandPaletteOpen: boolean;
-  visitedEntries: Set<number>;
+  visitedEntries: Set<string>;
 
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
@@ -13,8 +13,8 @@ interface UIState {
   closeModal: () => void;
   toggleSearch: () => void;
   toggleCommandPalette: () => void;
-  markEntryAsVisited: (entryId: number) => void;
-  isEntryVisited: (entryId: number) => boolean;
+  markEntryAsVisited: (entryId: string) => void;
+  isEntryVisited: (entryId: string) => boolean;
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -22,7 +22,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   currentModal: null,
   isSearchOpen: false,
   commandPaletteOpen: false,
-  visitedEntries: new Set<number>(),
+  visitedEntries: new Set<string>(),
 
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
 
@@ -36,13 +36,13 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   toggleCommandPalette: () => set((state) => ({ commandPaletteOpen: !state.commandPaletteOpen })),
 
-  markEntryAsVisited: (entryId: number) => {
+  markEntryAsVisited: (entryId: string) => {
     const newVisited = new Set(get().visitedEntries);
     newVisited.add(entryId);
     set({ visitedEntries: newVisited });
   },
 
-  isEntryVisited: (entryId: number) => {
+  isEntryVisited: (entryId: string) => {
     return get().visitedEntries.has(entryId);
   }
 }));

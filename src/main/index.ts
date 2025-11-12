@@ -8,8 +8,11 @@ import { registerMLHandlers } from './ipc/ml'
 import { registerCryptoHandlers } from './ipc/crypto'
 import { registerSyncHandlers } from './ipc/sync'
 import { registerSettingsHandlers } from './ipc/settings'
+import { registerAuthHandlers } from './ipc/auth'
+import { registerConflictHandlers } from './ipc/conflicts'
 import { initPythonService, pythonService } from './services/pythonService'
 import { initializeSyncService, startSyncWorker, stopSyncWorker } from './sync/syncService'
+import { initializeTierTransitions } from './sync/tierTransitions'
 
 let mainWindow: BrowserWindow | null = null
 let isShuttingDown = false
@@ -51,10 +54,13 @@ app.whenReady().then(async () => {
   registerCryptoHandlers()
   registerSyncHandlers()
   registerSettingsHandlers()
+  registerAuthHandlers()
+  registerConflictHandlers()
 
   initializeSyncService(db)
+  initializeTierTransitions(db)
   startSyncWorker()
-  console.log('[MAIN] Sync service initialized and worker started')
+  console.log('[MAIN] Sync service and tier transitions initialized, worker started')
 
   try {
     console.log('[MAIN] Starting Python embedding service...')

@@ -1,7 +1,10 @@
 import type Database from 'better-sqlite3';
 import type { SyncQueueItem } from '../../types/database';
-import { getSetting, updateSettings } from '../settings/settingsStore';
+import { getSetting, updateSettings, getSettings } from '../settings/settingsStore';
 import { PrivacyTier } from '../../types/settings';
+import { encrypt } from '../crypto/aesEncryption';
+import { getKey } from '../crypto/keyManager';
+import axios from 'axios';
 
 let syncWorkerInterval: NodeJS.Timeout | null = null;
 let isSyncing = false;
@@ -18,7 +21,7 @@ export function initializeSyncService(database: Database.Database): void {
 export interface SyncOperationPayload {
   operation: 'CREATE' | 'UPDATE' | 'DELETE';
   tableName: string;
-  recordId: number;
+  recordId: string;
   data?: Record<string, unknown>;
 }
 
@@ -34,15 +37,16 @@ export function enqueueSyncOperation(payload: SyncOperationPayload): number {
   }
 
   const stmt = db.prepare(`
-    INSERT INTO sync_queue (operation, table_name, record_id, data, synced, retry_count, failed)
-    VALUES (?, ?, ?, ?, 0, 0, 0)
+    INSERT INTO sync_queue (operation, table_name, record_id, data, created_at, synced, retry_count, failed)
+    VALUES (?, ?, ?, ?, ?, 0, 0, 0)
   `);
 
   const result = stmt.run(
     payload.operation,
     payload.tableName,
     payload.recordId,
-    payload.data ? JSON.stringify(payload.data) : null
+    payload.data ? JSON.stringify(payload.data) : null,
+    Date.now()
   );
 
   console.log(`Enqueued sync operation: ${payload.operation} ${payload.tableName} #${payload.recordId}`);
@@ -96,20 +100,130 @@ export function clearSyncQueue(): void {
 }
 
 async function uploadOperation(operation: SyncQueueItem): Promise<void> {
-  const backendUrl = getSetting('backendUrl');
-  const privacyTier = getSetting('privacyTier');
+  const settings = getSettings();
+  const backendUrl = settings.backendUrl || 'http://localhost:8000';
+  const authToken = settings.authToken;
+  const deviceId = settings.deviceId;
 
-  console.log(`[MOCK] Uploading ${operation.operation} to ${backendUrl}`, {
-    table: operation.table_name,
-    recordId: operation.record_id,
-    privacyTier,
-  });
+  if (!authToken) {
+    throw new Error('AUTH_REQUIRED:No authentication token available');
+  }
 
-  await new Promise((resolve) => setTimeout(resolve, 100));
+  if (operation.table_name !== 'entries') {
+    console.log(`Skipping sync for non-entry table: ${operation.table_name}`);
+    return;
+  }
 
-  const shouldFail = Math.random() < 0.1;
-  if (shouldFail) {
-    throw new Error('Mock network error');
+  const aesKey = await getKey('aes-key');
+  if (!aesKey) {
+    throw new Error('ENCRYPTION_KEY_MISSING:Encryption key not found');
+  }
+
+  const data = operation.data ? JSON.parse(operation.data as string) : {};
+
+  if (operation.operation === 'DELETE') {
+    await axios.delete(`${backendUrl}/api/sync/backup/${operation.record_id}`, {
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+      },
+      timeout: 30000,
+    });
+    console.log(`Successfully deleted entry ${operation.record_id} from backend`);
+    return;
+  }
+
+  const content = data.content || '';
+  const encrypted = encrypt(content, aesKey);
+
+  const payload = {
+    id: operation.record_id,
+    encrypted_content: Buffer.from(encrypted.encrypted, 'hex').toString('base64'),
+    content_iv: Buffer.from(encrypted.iv, 'hex').toString('base64'),
+    content_tag: Buffer.from(encrypted.authTag, 'hex').toString('base64'),
+    created_at: new Date(data.created_at || Date.now()).toISOString(),
+    updated_at: new Date(data.updated_at || Date.now()).toISOString(),
+    device_id: deviceId || 'unknown',
+  };
+
+  try {
+    await axios.post(`${backendUrl}/api/sync/backup`, payload, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authToken}`,
+      },
+      timeout: 30000,
+    });
+
+    console.log(`Successfully uploaded ${operation.operation} for entry ${operation.record_id}`);
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      if (error.response?.status === 409) {
+        await handleConflict(operation.record_id, backendUrl, authToken);
+        throw new Error('CONFLICT:Entry has been modified on server');
+      }
+      if (error.response?.status === 401) {
+        throw new Error('AUTH_REQUIRED:Authentication token expired or invalid');
+      }
+      if (error.response?.status === 403) {
+        throw new Error('PRIVACY_TIER:Privacy tier does not allow sync');
+      }
+      throw new Error(`HTTP_ERROR:${error.response?.status || 'Unknown'} - ${error.response?.data?.detail || error.message}`);
+    }
+    throw error;
+  }
+}
+
+async function handleConflict(entryId: string, backendUrl: string, authToken: string): Promise<void> {
+  if (!db) {
+    throw new Error('Sync service not initialized');
+  }
+
+  try {
+    console.log(`Fetching conflict details for entry ${entryId}`);
+
+    const response = await axios.get(`${backendUrl}/api/sync/conflicts`, {
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+      },
+      timeout: 30000,
+    });
+
+    const conflicts = response.data?.conflicts || [];
+    const conflict = conflicts.find((c: any) => c.log_id === entryId);
+
+    if (!conflict) {
+      console.error(`Conflict detected but not found in backend response for entry ${entryId}`);
+      return;
+    }
+
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO conflicts (
+        id, log_id,
+        local_encrypted_content, local_iv, local_tag, local_updated_at, local_device_id,
+        remote_encrypted_content, remote_iv, remote_tag, remote_updated_at, remote_device_id,
+        detected_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    stmt.run(
+      conflict.id,
+      conflict.log_id,
+      conflict.local_version.encrypted_content,
+      conflict.local_version.iv,
+      conflict.local_version.tag || null,
+      new Date(conflict.local_version.updated_at).getTime(),
+      conflict.local_version.device_id,
+      conflict.remote_version.encrypted_content,
+      conflict.remote_version.iv,
+      conflict.remote_version.tag || null,
+      new Date(conflict.remote_version.updated_at).getTime(),
+      conflict.remote_version.device_id,
+      new Date(conflict.detected_at).getTime()
+    );
+
+    console.log(`Conflict stored in local database: ${conflict.id}`);
+  } catch (error) {
+    console.error('Failed to handle conflict:', error);
   }
 }
 

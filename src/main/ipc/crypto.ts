@@ -81,21 +81,75 @@ export function registerCryptoHandlers(): void {
   // Key Management
   ipcMain.handle('crypto:keys:generate', async (_event, backendUrl?: string) => {
     try {
+      console.log('[Crypto IPC] Generating AES key...');
+      console.log('[Crypto IPC] Backend URL provided:', backendUrl);
+
       const aesKey = await keyManager.generateAESKey();
+      console.log('[Crypto IPC] AES key generated successfully');
 
-      const heContext = await heEncryption.fetchHEContext(backendUrl);
-      await heEncryption.initializeContext(heContext);
+      let hePublicKey: string | undefined;
 
-      const heKeys = await heEncryption.generateHEKeys();
+      if (backendUrl) {
+        console.log('[Crypto IPC] Attempting HE key generation...');
+        try {
+          const heContext = await heEncryption.fetchHEContext(backendUrl);
+          await heEncryption.initializeContext(heContext);
+          const heKeys = await heEncryption.generateHEKeys();
+          hePublicKey = heKeys.publicKey;
+          console.log('[Crypto IPC] HE keys generated successfully');
+        } catch (heError: any) {
+          console.warn('[Crypto IPC] HE key generation failed (backend may be offline):', heError.message);
+          console.warn('[Crypto IPC] Stack trace:', heError.stack);
+        }
+      } else {
+        console.log('[Crypto IPC] No backend URL provided, skipping HE key generation');
+      }
 
       return {
         success: true,
         data: {
           aesKeyGenerated: true,
-          hePublicKey: heKeys.publicKey
+          hePublicKey
         }
       };
     } catch (error: any) {
+      console.error('[Crypto IPC] FATAL ERROR generating keys:', error.message);
+      console.error('[Crypto IPC] Stack trace:', error.stack);
+      console.error('[Crypto IPC] Error details:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('crypto:keys:generateHE', async (_event, backendUrl?: string) => {
+    try {
+      console.log('[Crypto IPC] Starting HE key generation...');
+      console.log('[Crypto IPC] Backend URL:', backendUrl || 'default');
+
+      console.log('[Crypto IPC] Step 1: Fetching HE context from backend...');
+      const heContext = await heEncryption.fetchHEContext(backendUrl);
+      console.log('[Crypto IPC] HE context fetched successfully');
+      console.log('[Crypto IPC] Context poly_modulus_degree:', heContext.context_params.poly_modulus_degree);
+
+      console.log('[Crypto IPC] Step 2: Initializing SEAL context...');
+      await heEncryption.initializeContext(heContext);
+      console.log('[Crypto IPC] SEAL context initialized successfully');
+
+      console.log('[Crypto IPC] Step 3: Generating HE key pair...');
+      const heKeys = await heEncryption.generateHEKeys();
+      console.log('[Crypto IPC] HE keys generated successfully');
+      console.log('[Crypto IPC] Public key length:', heKeys.publicKey.length);
+
+      return {
+        success: true,
+        data: {
+          publicKey: heKeys.publicKey
+        }
+      };
+    } catch (error: any) {
+      console.error('[Crypto IPC] HE key generation FAILED');
+      console.error('[Crypto IPC] Error message:', error.message);
+      console.error('[Crypto IPC] Error stack:', error.stack);
+      console.error('[Crypto IPC] Full error:', error);
       return { success: false, error: error.message };
     }
   });

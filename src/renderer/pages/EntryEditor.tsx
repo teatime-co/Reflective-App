@@ -29,7 +29,7 @@ export function EntryEditor() {
   const embeddingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialLoadRef = useRef(true);
   const lastSavedContentRef = useRef<string>('');
-  const currentEntryIdRef = useRef<number | null>(null);
+  const currentEntryIdRef = useRef<string | null>(null);
   const currentContentRef = useRef<string>('');
 
   const editor = useEditor({
@@ -66,12 +66,11 @@ export function EntryEditor() {
 
   useEffect(() => {
     if (id) {
-      const entryId = parseInt(id, 10);
-      currentEntryIdRef.current = entryId;
+      currentEntryIdRef.current = id;
       isInitialLoadRef.current = true;
-      getEntry(entryId);
-      getTagsForEntry(entryId);
-      loadThemesByEntry(entryId);
+      getEntry(id);
+      getTagsForEntry(id);
+      loadThemesByEntry(id);
     } else {
       currentEntryIdRef.current = null;
       isInitialLoadRef.current = true;
@@ -127,7 +126,7 @@ export function EntryEditor() {
     }
 
     setIsSaving(true);
-    await updateEntry(parseInt(id, 10), {
+    await updateEntry(id, {
       content,
       word_count: words,
     });
@@ -140,7 +139,7 @@ export function EntryEditor() {
     embeddingTimeoutRef.current = setTimeout(() => {
       const text = editor?.getText() || '';
       if (text.trim().length > 20) {
-        generateAndSaveEmbedding(parseInt(id, 10), text);
+        generateAndSaveEmbedding(id, text);
       }
     }, 2000);
   };
@@ -153,7 +152,7 @@ export function EntryEditor() {
 
     if (id && currentEntry) {
       setIsSaving(true);
-      const success = await updateEntry(parseInt(id, 10), { content, word_count: words });
+      const success = await updateEntry(id, { content, word_count: words });
       setIsSaving(false);
       if (success) {
         navigate('/entries');
@@ -173,7 +172,7 @@ export function EntryEditor() {
 
     const confirmed = confirm('Are you sure you want to delete this entry?');
     if (confirmed) {
-      const success = await deleteEntry(parseInt(id, 10));
+      const success = await deleteEntry(id);
       if (success) {
         navigate('/entries');
       }
@@ -182,11 +181,11 @@ export function EntryEditor() {
 
   const handleAddTag = async (tagId: number) => {
     if (!id) return;
-    await addTagToEntry(parseInt(id, 10), tagId);
+    await addTagToEntry(id, tagId);
 
     if (currentEntry?.content) {
       console.log('[EntryEditor] Tag added, re-generating embedding in background...');
-      generateAndSaveEmbedding(parseInt(id, 10), currentEntry.content).catch(err =>
+      generateAndSaveEmbedding(id, currentEntry.content).catch(err =>
         console.error('[EntryEditor] Background re-embedding failed:', err)
       );
     }
@@ -194,11 +193,11 @@ export function EntryEditor() {
 
   const handleRemoveTag = async (tagId: number) => {
     if (!id) return;
-    await removeTagFromEntry(parseInt(id, 10), tagId);
+    await removeTagFromEntry(id, tagId);
 
     if (currentEntry?.content) {
       console.log('[EntryEditor] Tag removed, re-generating embedding in background...');
-      generateAndSaveEmbedding(parseInt(id, 10), currentEntry.content).catch(err =>
+      generateAndSaveEmbedding(id, currentEntry.content).catch(err =>
         console.error('[EntryEditor] Background re-embedding failed:', err)
       );
     }
@@ -209,11 +208,11 @@ export function EntryEditor() {
 
     const tag = await createTag({ name: newTagName.trim() });
     if (tag && id) {
-      await addTagToEntry(parseInt(id, 10), tag.id);
+      await addTagToEntry(id, tag.id);
 
       if (currentEntry?.content) {
         console.log('[EntryEditor] New tag created and added, re-generating embedding in background...');
-        generateAndSaveEmbedding(parseInt(id, 10), currentEntry.content).catch(err =>
+        generateAndSaveEmbedding(id, currentEntry.content).catch(err =>
           console.error('[EntryEditor] Background re-embedding failed:', err)
         );
       }
@@ -231,10 +230,10 @@ export function EntryEditor() {
       return;
     }
 
-    await generateThemes(parseInt(id, 10), currentEntry.content);
+    await generateThemes(id, currentEntry.content);
   };
 
-  const currentEntryTags = id ? entryTags.get(parseInt(id, 10)) || [] : [];
+  const currentEntryTags = id ? entryTags.get(id) || [] : [];
   const availableTags = tags.filter(t => !currentEntryTags.some(et => et.id === t.id));
 
   return (

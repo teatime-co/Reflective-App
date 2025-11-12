@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useSyncStore } from '../stores/useSyncStore';
+import { useConflictsStore } from '../stores/useConflictsStore';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Loader2, CloudOff, Cloud, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 
 export function SyncIndicator() {
+  const navigate = useNavigate();
   const {
     isSyncing,
     lastSyncTime,
@@ -16,17 +19,27 @@ export function SyncIndicator() {
     getSyncStatus,
   } = useSyncStore();
 
+  const { getConflictCount } = useConflictsStore();
   const { settings } = useSettingsStore();
+  const [conflictCount, setConflictCount] = useState(0);
 
   useEffect(() => {
     getSyncStatus();
 
+    const updateConflictCount = async () => {
+      const count = await getConflictCount();
+      setConflictCount(count);
+    };
+
+    updateConflictCount();
+
     const interval = setInterval(() => {
       getSyncStatus();
+      updateConflictCount();
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [getSyncStatus]);
+  }, [getSyncStatus, getConflictCount]);
 
   const handleManualSync = async () => {
     await processQueue();
@@ -68,7 +81,12 @@ export function SyncIndicator() {
 
   const getSyncStatus = () => {
     if (isSyncing) return 'Syncing...';
-    if (error) return 'Sync error';
+    if (error) {
+      if (error.includes('AUTH_REQUIRED')) return 'Auth required';
+      if (error.includes('ENCRYPTION_KEY_MISSING')) return 'Keys missing';
+      if (error.includes('CONFLICT')) return 'Conflict detected';
+      return 'Sync error';
+    }
     if (failedCount > 0) return `${failedCount} failed`;
     if (pendingCount === 0) return 'Synced';
     return `${pendingCount} pending`;
@@ -90,6 +108,16 @@ export function SyncIndicator() {
       {failedCount > 0 && (
         <Badge variant="destructive" className="text-xs">
           {failedCount} failed
+        </Badge>
+      )}
+
+      {conflictCount > 0 && (
+        <Badge
+          variant="destructive"
+          className="text-xs cursor-pointer"
+          onClick={() => navigate('/conflicts')}
+        >
+          {conflictCount} conflict{conflictCount !== 1 ? 's' : ''}
         </Badge>
       )}
 

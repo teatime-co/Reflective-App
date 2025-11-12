@@ -1,6 +1,6 @@
 export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS entries (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id TEXT PRIMARY KEY,
     content TEXT NOT NULL,
     embedding BLOB,
     created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
@@ -28,7 +28,7 @@ CREATE INDEX IF NOT EXISTS idx_tags_usage_count ON tags(usage_count DESC);
 
 CREATE TABLE IF NOT EXISTS entry_tags (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    entry_id INTEGER NOT NULL,
+    entry_id TEXT NOT NULL,
     tag_id INTEGER NOT NULL,
     created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
     FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE,
@@ -41,7 +41,7 @@ CREATE INDEX IF NOT EXISTS idx_entry_tags_tag_id ON entry_tags(tag_id);
 
 CREATE TABLE IF NOT EXISTS themes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    entry_id INTEGER NOT NULL,
+    entry_id TEXT NOT NULL,
     theme_name TEXT NOT NULL,
     confidence REAL NOT NULL,
     created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS sync_queue (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     operation TEXT NOT NULL CHECK(operation IN ('CREATE', 'UPDATE', 'DELETE')),
     table_name TEXT NOT NULL,
-    record_id INTEGER NOT NULL,
+    record_id TEXT NOT NULL,
     data TEXT,
     created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
     synced INTEGER DEFAULT 0
