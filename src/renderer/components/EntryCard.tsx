@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { memo, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { TagBadge } from './TagBadge';
 import type { Entry, Tag } from '../../types/database';
@@ -11,16 +12,26 @@ interface EntryCardProps {
   isVisited?: boolean;
 }
 
-export function EntryCard({ entry, tags = [], onClick }: EntryCardProps) {
-  const stripHtml = (html: string) => {
-    const tmp = document.createElement('div');
-    tmp.innerHTML = html;
-    return tmp.textContent || tmp.innerText || '';
-  };
+export const EntryCard = memo(function EntryCard({ entry, tags = [], onClick }: EntryCardProps) {
+  const { excerpt, hasMore } = useMemo(() => {
+    const stripHtml = (html: string) => {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      return tmp.textContent || tmp.innerText || '';
+    };
 
-  const plainText = stripHtml(entry.content);
-  const excerpt = plainText.substring(0, 150);
-  const hasMore = plainText.length > 150;
+    const text = stripHtml(entry.content);
+    const excerptText = text.substring(0, 150);
+    return {
+      excerpt: excerptText,
+      hasMore: text.length > 150
+    };
+  }, [entry.content]);
+
+  const formattedDate = useMemo(
+    () => format(new Date(entry.created_at), 'MMM dd, yyyy • h:mm a'),
+    [entry.created_at]
+  );
 
   return (
     <Card
@@ -34,7 +45,7 @@ export function EntryCard({ entry, tags = [], onClick }: EntryCardProps) {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm text-slate-500">
-            {format(new Date(entry.created_at), 'MMM dd, yyyy • h:mm a')}
+            {formattedDate}
           </CardTitle>
           <span className="text-xs text-slate-400">{entry.word_count} words</span>
         </div>
@@ -54,4 +65,4 @@ export function EntryCard({ entry, tags = [], onClick }: EntryCardProps) {
       </CardContent>
     </Card>
   );
-}
+});

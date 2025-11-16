@@ -1,5 +1,9 @@
 import { create } from 'zustand';
 import type { SearchResult, IndexStatus } from '../../types/embeddings';
+import { LRUCache } from '../lib/queryCache';
+
+const searchCache = new LRUCache<SearchResult[]>(50, 5 * 60 * 1000);
+const embeddingCache = new LRUCache<number[]>(100, 10 * 60 * 1000);
 
 interface EmbeddingsState {
   query: string;
@@ -34,17 +38,33 @@ export const useEmbeddingsStore = create<EmbeddingsState>((set) => ({
       return;
     }
 
+    const cacheKey = `${query.toLowerCase().trim()}:${limit}`;
+    const cachedResults = searchCache.get(cacheKey);
+    if (cachedResults) {
+      set({ searchResults: cachedResults, isSearching: false, error: null });
+      return;
+    }
+
     set({ isSearching: true, error: null });
     try {
-      const embeddingResult = await window.electronAPI.embeddings.generate(query);
+      const embeddingCacheKey = query.toLowerCase().trim();
+      let embedding = embeddingCache.get(embeddingCacheKey);
 
-      if (!embeddingResult.success || !embeddingResult.data) {
-        throw new Error(embeddingResult.error || 'Failed to generate embedding');
+      if (!embedding) {
+        const embeddingResult = await window.electronAPI.embeddings.generate(query);
+
+        if (!embeddingResult.success || !embeddingResult.data) {
+          throw new Error(embeddingResult.error || 'Failed to generate embedding');
+        }
+
+        embedding = embeddingResult.data.embedding;
+        embeddingCache.set(embeddingCacheKey, embedding);
       }
 
-      const result = await window.electronAPI.embeddings.search(embeddingResult.data.embedding, limit);
+      const result = await window.electronAPI.embeddings.search(embedding, limit);
 
       if (result.success && result.data) {
+        searchCache.set(cacheKey, result.data);
         set({ searchResults: result.data, isSearching: false });
       } else {
         set({
@@ -71,6 +91,7 @@ export const useEmbeddingsStore = create<EmbeddingsState>((set) => ({
 
       if (result.success) {
         console.log('[EmbeddingsStore] Index rebuilt successfully');
+        searchCache.clear();
         await useEmbeddingsStore.getState().checkStatus();
         set({ isIndexing: false });
       } else {
@@ -107,3 +128,7 @@ export const useEmbeddingsStore = create<EmbeddingsState>((set) => ({
     set({ query: '', searchResults: [], error: null });
   }
 }));
+
+export const invalidateSearchCache = () => {
+  searchCache.clear();
+};

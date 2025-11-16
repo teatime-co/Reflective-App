@@ -1,7 +1,11 @@
 import { create } from 'zustand';
 import type { Entry, NewEntry, UpdateEntry } from '../../types/database';
 import { useSyncStore } from './useSyncStore';
+import { invalidateSearchCache } from './useEmbeddingsStore';
 import { v4 as uuidv4 } from 'uuid';
+import { LRUCache } from '../lib/queryCache';
+
+const entryCache = new LRUCache<Entry>(50, 5 * 60 * 1000);
 
 interface EntriesState {
   entries: Entry[];
@@ -46,6 +50,12 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
   },
 
   getEntry: async (id: string) => {
+    const cached = entryCache.get(id);
+    if (cached) {
+      set({ currentEntry: cached, isLoading: false, error: null });
+      return;
+    }
+
     set({ isLoading: true, error: null });
     try {
       const result = await window.electronAPI.db.query<Entry[]>(
@@ -54,7 +64,9 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       );
 
       if (result.success && result.data && result.data.length > 0) {
-        set({ currentEntry: result.data[0], isLoading: false });
+        const entry = result.data[0];
+        entryCache.set(id, entry);
+        set({ currentEntry: entry, isLoading: false });
       } else {
         set({ error: 'Entry not found', isLoading: false });
       }
@@ -100,6 +112,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
 
         if (newEntryResult.success && newEntryResult.data && newEntryResult.data.length > 0) {
           const newEntry = newEntryResult.data[0];
+          entryCache.set(newEntry.id, newEntry);
           set((state) => ({
             entries: [newEntry, ...state.entries],
             currentEntry: newEntry,
@@ -179,6 +192,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       );
 
       if (result.success) {
+        entryCache.invalidate(new RegExp(`^${id}$`));
         set((state) => ({
           entries: state.entries.map((e) =>
             e.id === id ? { ...e, ...updates, updated_at: Date.now() } : e
@@ -219,6 +233,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       );
 
       if (result.success) {
+        entryCache.invalidate(new RegExp(`^${id}$`));
         set((state) => ({
           entries: state.entries.filter((e) => e.id !== id),
           currentEntry: state.currentEntry?.id === id ? null : state.currentEntry,
@@ -312,6 +327,9 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
         const addResult = await window.electronAPI.embeddings.addEntry(id, embeddingResult.data.embedding);
         console.log(`[generateAndSaveEmbedding] Add to index result:`, addResult);
       }
+
+      invalidateSearchCache();
+      console.log(`[generateAndSaveEmbedding] Search cache invalidated`);
 
       set({ isGeneratingEmbedding: false });
       console.log(`[generateAndSaveEmbedding] Successfully completed for entry ${id}`);
@@ -437,6 +455,12 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
     if (errors.length > 0) {
       console.error('[EntriesStore] Errors:', errors);
     }
+
+    if (success > 0) {
+      invalidateSearchCache();
+      console.log(`[EntriesStore] Search cache invalidated after ${success} embedding updates`);
+    }
+
     return { success, failed, errors };
   },
 

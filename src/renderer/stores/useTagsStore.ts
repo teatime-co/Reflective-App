@@ -1,5 +1,8 @@
 import { create } from 'zustand';
 import type { Tag, NewTag } from '../../types/database';
+import { LRUCache } from '../lib/queryCache';
+
+const tagCache = new LRUCache<Tag[]>(100, 5 * 60 * 1000);
 
 interface TagsState {
   tags: Tag[];
@@ -9,6 +12,7 @@ interface TagsState {
 
   loadTags: () => Promise<void>;
   getTagsForEntry: (entryId: string) => Promise<void>;
+  getTagsForEntries: (entryIds: string[]) => Promise<Map<string, Tag[]>>;
   createTag: (tag: NewTag) => Promise<Tag | null>;
   updateTag: (id: number, updates: Partial<Tag>) => Promise<boolean>;
   deleteTag: (id: number) => Promise<boolean>;
@@ -40,6 +44,16 @@ export const useTagsStore = create<TagsState>((set, get) => ({
   },
 
   getTagsForEntry: async (entryId: string) => {
+    const cached = tagCache.get(entryId);
+    if (cached) {
+      set((state) => {
+        const newEntryTags = new Map(state.entryTags);
+        newEntryTags.set(entryId, cached);
+        return { entryTags: newEntryTags };
+      });
+      return;
+    }
+
     set({ isLoading: true, error: null });
     try {
       const result = await window.electronAPI.db.query<Tag[]>(
@@ -51,6 +65,7 @@ export const useTagsStore = create<TagsState>((set, get) => ({
       );
 
       if (result.success && result.data) {
+        tagCache.set(entryId, result.data);
         set((state) => {
           const newEntryTags = new Map(state.entryTags);
           newEntryTags.set(entryId, result.data || []);
@@ -62,6 +77,57 @@ export const useTagsStore = create<TagsState>((set, get) => ({
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Unknown error', isLoading: false });
     }
+  },
+
+  getTagsForEntries: async (entryIds: string[]) => {
+    const resultMap = new Map<string, Tag[]>();
+    const uncachedIds: string[] = [];
+
+    for (const entryId of entryIds) {
+      const cached = tagCache.get(entryId);
+      if (cached) {
+        resultMap.set(entryId, cached);
+      } else {
+        uncachedIds.push(entryId);
+      }
+    }
+
+    if (uncachedIds.length === 0) {
+      return resultMap;
+    }
+
+    try {
+      const placeholders = uncachedIds.map(() => '?').join(',');
+      const result = await window.electronAPI.db.query<Array<Tag & { entry_id: string }>>(
+        `SELECT t.*, et.entry_id FROM tags t
+         INNER JOIN entry_tags et ON t.id = et.tag_id
+         WHERE et.entry_id IN (${placeholders})
+         ORDER BY et.entry_id, t.name ASC`,
+        uncachedIds
+      );
+
+      if (result.success && result.data) {
+        const groupedTags = new Map<string, Tag[]>();
+
+        for (const row of result.data) {
+          const { entry_id, ...tag } = row;
+          if (!groupedTags.has(entry_id)) {
+            groupedTags.set(entry_id, []);
+          }
+          groupedTags.get(entry_id)!.push(tag as Tag);
+        }
+
+        for (const entryId of uncachedIds) {
+          const tags = groupedTags.get(entryId) || [];
+          tagCache.set(entryId, tags);
+          resultMap.set(entryId, tags);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch tags for entries:', error);
+    }
+
+    return resultMap;
   },
 
   createTag: async (tag: NewTag) => {
@@ -178,6 +244,7 @@ export const useTagsStore = create<TagsState>((set, get) => ({
           [tagId]
         );
 
+        tagCache.invalidate(new RegExp(`^${entryId}$`));
         await get().getTagsForEntry(entryId);
         await get().loadTags();
         set({ isLoading: false });
@@ -206,6 +273,7 @@ export const useTagsStore = create<TagsState>((set, get) => ({
           [tagId]
         );
 
+        tagCache.invalidate(new RegExp(`^${entryId}$`));
         await get().getTagsForEntry(entryId);
         await get().loadTags();
         set({ isLoading: false });
