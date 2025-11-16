@@ -1,4 +1,4 @@
-import { pipeline, env, type Pipeline } from '@xenova/transformers';
+import { pipeline, env } from '@xenova/transformers';
 
 env.allowLocalModels = false;
 env.allowRemoteModels = true;
@@ -6,7 +6,7 @@ env.useBrowserCache = false;
 env.backends.onnx.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
 
 class EmbeddingsService {
-  private model: Pipeline | null = null;
+  private model: any = null;
   private isInitializing = false;
   private initPromise: Promise<void> | null = null;
 

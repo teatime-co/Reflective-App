@@ -1,3 +1,4 @@
+import './seal-types';
 import SEAL from 'node-seal';
 import axios from 'axios';
 import path from 'path';
@@ -23,7 +24,8 @@ export async function initializeSEAL(): Promise<void> {
   console.log('[HE] __dirname:', __dirname);
   console.log('[HE] process.cwd():', process.cwd());
 
-  sealInstance = await SEAL({
+  // Type assertion: SEAL runtime supports locateFile (Emscripten Module options) despite incomplete type definitions
+  sealInstance = await (SEAL as any)({
     locateFile: (file: string) => {
       const possiblePaths = [
         path.join(__dirname, file),

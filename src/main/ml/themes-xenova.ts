@@ -24,7 +24,6 @@ class ThemesService {
   private classifier: ZeroShotClassificationPipeline | null = null
   private isInitializing = false
   private initializationPromise: Promise<void> | null = null
-  private transformersModule: any = null
 
   async initialize(): Promise<void> {
     if (this.classifier) {
@@ -47,7 +46,6 @@ class ThemesService {
 
       console.log('[ThemesService] Loading @xenova/transformers module')
       const transformers = await import('@xenova/transformers')
-      this.transformersModule = transformers
 
       console.log('[ThemesService] Initializing bart-large-mnli model (WASM backend)...')
       const startTime = Date.now()

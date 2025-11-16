@@ -44,12 +44,12 @@ export class PythonService {
 
   private findPythonSource(): { python: string; script: string; cwd: string } | null {
     const appPath = app.getAppPath()
-    const venvPython = path.join(appPath, 'python-service', 'venv', 'bin', 'python')
+    const venvPython = path.join(appPath, 'python-service', '.venv', 'bin', 'python')
     const script = path.join(appPath, 'python-service', 'embedding_server.py')
     const cwd = path.join(appPath, 'python-service')
 
     if (fs.existsSync(venvPython) && fs.existsSync(script)) {
-      console.log(`[PythonService] Found Python source: venv=${venvPython}, script=${script}`)
+      console.log(`[PythonService] Found Python source: .venv=${venvPython}, script=${script}`)
       return { python: venvPython, script, cwd }
     }
 
@@ -88,7 +88,7 @@ export class PythonService {
     let execPath: string
     let args: string[] = []
     let cwd: string | undefined
-    const env = {
+    const env: NodeJS.ProcessEnv = {
       ...process.env,
       PORT: this.port.toString(),
       PYTHONUNBUFFERED: '1',

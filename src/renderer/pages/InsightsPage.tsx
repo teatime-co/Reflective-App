@@ -1,14 +1,12 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
-import { BarChart3, Sparkles, TrendingUp, Hash } from 'lucide-react'
+import { Sparkles, Hash, BarChart3 } from 'lucide-react'
 import { ThemeDistributionChart } from '../components/ThemeDistributionChart'
 import { SentimentTrendChart } from '../components/SentimentTrendChart'
-import { KeywordsCloud } from '../components/KeywordsCloud'
 import { WritingStats } from '../components/WritingStats'
 import { useEntriesStore } from '../stores/useEntriesStore'
 import { useThemesStore } from '../stores/useThemesStore'
-import type { Entry } from '../../types/database'
 
 interface ThemeData {
   theme_name: string
@@ -90,13 +88,13 @@ export function InsightsPage() {
     setThemesProgress({ current: 0, total: entries.length })
 
     setCurrentOperation('sentiment')
-    const sentimentResult = await regenerateSentimentForAllEntries((current, total) => {
+    const sentimentResult = await regenerateSentimentForAllEntries((current: number, total: number) => {
       setThemesProgress({ current, total })
     })
 
     setCurrentOperation('themes')
     setThemesProgress({ current: 0, total: entries.length })
-    const themesResult = await generateThemesForAllEntries(entries, (current, total) => {
+    const themesResult = await generateThemesForAllEntries(entries, (current: number, total: number) => {
       setThemesProgress({ current, total })
     })
 

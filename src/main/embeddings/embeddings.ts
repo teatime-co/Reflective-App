@@ -7,7 +7,6 @@ class EmbeddingsService {
   private modelName = 'Xenova/all-MiniLM-L6-v2';
   private isLoading = false;
   private loadPromise: Promise<void> | null = null;
-  private transformersModule: any = null;
 
   async initialize(): Promise<void> {
     if (this.model) return;
@@ -21,7 +20,6 @@ class EmbeddingsService {
 
         console.log(`[Embeddings] Loading @xenova/transformers module`);
         const transformers = await import('@xenova/transformers');
-        this.transformersModule = transformers;
 
         console.log(`[Embeddings] Loading model: ${this.modelName} (WASM backend)`);
         const startTime = Date.now();

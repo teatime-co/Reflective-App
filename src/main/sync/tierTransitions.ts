@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3';
 import { PrivacyTier } from '../../types/settings';
 import { encrypt } from '../crypto/aesEncryption';
-import { getKey, generateAESKey, getKeyString, KEY_NAMES } from '../crypto/keyManager';
+import { getKey, getKeyString, KEY_NAMES } from '../crypto/keyManager';
 import { enqueueSyncOperation } from './syncService';
 import * as heEncryption from '../crypto/heEncryption';
 import { getSettings } from '../settings/settingsStore';
@@ -229,7 +229,8 @@ async function handleTierDowngrade(
   }
 }
 
-async function bulkEncryptAndQueueEntries(
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function _bulkEncryptAndQueueEntries(
   aesKey: Buffer,
   progressCallback?: (progress: TierTransitionProgress) => void
 ): Promise<TierTransitionResult> {

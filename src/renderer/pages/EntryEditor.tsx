@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -7,7 +7,7 @@ import { Button } from '../components/ui/button';
 import { EditorToolbar } from '../components/EditorToolbar';
 import { TagBadge } from '../components/TagBadge';
 import { Input } from '../components/ui/input';
-import { Save, Plus, Trash2, ArrowLeft, Sparkles } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, Sparkles } from 'lucide-react';
 import { useEntriesStore } from '../stores/useEntriesStore';
 import { useTagsStore } from '../stores/useTagsStore';
 import { useThemesStore } from '../stores/useThemesStore';
@@ -17,7 +17,7 @@ export function EntryEditor() {
   const navigate = useNavigate();
   const location = useLocation();
   const { id } = useParams<{ id: string }>();
-  const { currentEntry, getEntry, createEntry, updateEntry, deleteEntry, setCurrentEntry, isLoading, generateAndSaveEmbedding, isGeneratingEmbedding } = useEntriesStore();
+  const { currentEntry, getEntry, createEntry, updateEntry, deleteEntry, generateAndSaveEmbedding, isGeneratingEmbedding } = useEntriesStore();
   const { tags, entryTags, loadTags, getTagsForEntry, addTagToEntry, removeTagFromEntry, createTag } = useTagsStore();
   const { themes, isGenerating, generateThemes, loadThemesByEntry } = useThemesStore();
 
@@ -60,7 +60,7 @@ export function EntryEditor() {
         }
         saveTimeoutRef.current = setTimeout(() => {
           handleAutoSave(content, words);
-        }, 3000);
+        }, 1500);
       }
     },
   });
@@ -71,7 +71,7 @@ export function EntryEditor() {
       isInitialLoadRef.current = true;
       getEntry(id);
       getTagsForEntry(id);
-      loadThemesByEntry(id);
+      loadThemesByEntry(Number(id));
     } else {
       currentEntryIdRef.current = null;
       isInitialLoadRef.current = true;
@@ -140,12 +140,13 @@ export function EntryEditor() {
     embeddingTimeoutRef.current = setTimeout(() => {
       const text = editor?.getText() || '';
       if (text.trim().length > 20) {
-        generateAndSaveEmbedding(id, text);
+        generateAndSaveEmbedding(id, content);
       }
-    }, 2000);
+    }, 500);
   };
 
-  const handleSave = async () => {
+  // Reserved for future manual save functionality
+  const _handleSave = async () => {
     if (!editor) return;
 
     const content = editor.getHTML();
@@ -180,7 +181,8 @@ export function EntryEditor() {
     }
   };
 
-  const handleAddTag = async (tagId: number) => {
+  // Reserved for future tag management functionality
+  const _handleAddTag = async (tagId: number) => {
     if (!id) return;
     await addTagToEntry(id, tagId);
 
@@ -258,7 +260,7 @@ export function EntryEditor() {
       return;
     }
 
-    await generateThemes(id, currentEntry.content);
+    await generateThemes(Number(id), currentEntry.content);
   };
 
   const currentEntryTags = id ? entryTags.get(id) || [] : [];

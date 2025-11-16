@@ -4,10 +4,10 @@ export interface EmbeddingVector {
 }
 
 export interface SearchResult {
-  entryId: number;
+  entryId: string;
   score: number;
   entry: {
-    id: number;
+    id: string;
     content: string;
     created_at: number;
     updated_at: number;

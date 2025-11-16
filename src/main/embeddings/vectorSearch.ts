@@ -1,13 +1,8 @@
 import type { IndexStatus } from '../../types/embeddings';
 import { embeddingsService } from './embeddings';
 
-interface IndexEntry {
-  entryId: number;
-  embedding: Float32Array;
-}
-
 class VectorSearchService {
-  private vectors: Map<number, Float32Array> = new Map();
+  private vectors: Map<string, Float32Array> = new Map();
   private dimensions = 384;
   private status: IndexStatus = {
     state: 'ready',
@@ -42,7 +37,7 @@ class VectorSearchService {
     this.status.state = 'ready';
   }
 
-  async addEntry(entryId: number, embedding: Float32Array): Promise<void> {
+  async addEntry(entryId: string, embedding: Float32Array): Promise<void> {
     if (embedding.length !== this.dimensions) {
       throw new Error(`Invalid embedding dimensions: expected ${this.dimensions}, got ${embedding.length}`);
     }
@@ -57,7 +52,7 @@ class VectorSearchService {
     console.log(`[VectorSearch] Added entry ${entryId} to index (total: ${this.status.entryCount})`);
   }
 
-  async search(queryEmbedding: Float32Array, k: number = 10): Promise<Array<{ entryId: number; score: number }>> {
+  async search(queryEmbedding: Float32Array, k: number = 10): Promise<Array<{ entryId: string; score: number }>> {
     if (this.status.state !== 'ready') {
       throw new Error('Index not ready for search');
     }
@@ -70,7 +65,7 @@ class VectorSearchService {
       throw new Error(`Invalid query embedding dimensions: expected ${this.dimensions}, got ${queryEmbedding.length}`);
     }
 
-    const similarities: Array<{ entryId: number; score: number }> = [];
+    const similarities: Array<{ entryId: string; score: number }> = [];
 
     for (const [entryId, embedding] of this.vectors.entries()) {
       const similarity = this.cosineSimilarity(queryEmbedding, embedding);
@@ -83,7 +78,7 @@ class VectorSearchService {
     return similarities.slice(0, actualK);
   }
 
-  async rebuildIndex(entries: Array<{ id: number; embedding: Buffer }>): Promise<void> {
+  async rebuildIndex(entries: Array<{ id: string; embedding: Buffer }>): Promise<void> {
     console.log(`[VectorSearch] Rebuilding index with ${entries.length} entries`);
     this.status.state = 'building';
 

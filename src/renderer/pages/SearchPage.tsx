@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -39,7 +39,7 @@ export function SearchPage() {
     clearResults
   } = useEmbeddingsStore();
   const { entries, generateEmbeddingsForAllEntries, isGeneratingEmbedding } = useEntriesStore();
-  const { markEntryAsVisited, isEntryVisited } = useUIStore();
+  const { markEntryAsVisited } = useUIStore();
   const { entryTags, getTagsForEntry } = useTagsStore();
 
   useEffect(() => {
@@ -97,7 +97,7 @@ export function SearchPage() {
     await rebuildIndex();
   };
 
-  const [progress, setProgress] = React.useState({ current: 0, total: 0 });
+  const [progress, setProgress] = useState({ current: 0, total: 0 });
 
   const handleGenerateAll = async () => {
     setIsGeneratingAll(true);

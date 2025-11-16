@@ -84,7 +84,7 @@ export function registerCryptoHandlers(): void {
       console.log('[Crypto IPC] Generating AES key...');
       console.log('[Crypto IPC] Backend URL provided:', backendUrl);
 
-      const aesKey = await keyManager.generateAESKey();
+      await keyManager.generateAESKey();
       console.log('[Crypto IPC] AES key generated successfully');
 
       let hePublicKey: string | undefined;

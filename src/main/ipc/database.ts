@@ -65,7 +65,7 @@ export function registerDatabaseHandlers(): void {
           results.push({
             success: true,
             changes: result.changes,
-            lastInsertRowid: result.lastInsertRowid,
+            lastInsertRowid: result.lastInsertRowid ? String(result.lastInsertRowid) : undefined,
           });
         }
       });

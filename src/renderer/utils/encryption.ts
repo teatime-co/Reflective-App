@@ -13,15 +13,7 @@ export interface EncryptedEntry {
 }
 
 export async function encryptEntry(entry: Entry): Promise<EncryptedEntry> {
-  const keyResult = await window.electronAPI.crypto.keys.load('aes-key');
-  if (!keyResult.success || !keyResult.data) {
-    throw new Error('Encryption key not found. Please generate keys in settings.');
-  }
-
-  const encryptResult = await window.electronAPI.crypto.aes.encrypt(
-    entry.content,
-    keyResult.data
-  );
+  const encryptResult = await window.electronAPI.crypto.aes.encrypt(entry.content);
 
   if (!encryptResult.success || !encryptResult.data) {
     throw new Error(encryptResult.error || 'Encryption failed');
@@ -41,19 +33,11 @@ export async function encryptEntry(entry: Entry): Promise<EncryptedEntry> {
 }
 
 export async function decryptEntry(encryptedEntry: EncryptedEntry): Promise<Entry> {
-  const keyResult = await window.electronAPI.crypto.keys.load('aes-key');
-  if (!keyResult.success || !keyResult.data) {
-    throw new Error('Encryption key not found');
-  }
-
-  const decryptResult = await window.electronAPI.crypto.aes.decrypt(
-    {
-      encrypted: encryptedEntry.encrypted_content,
-      iv: encryptedEntry.iv,
-      authTag: encryptedEntry.auth_tag,
-    },
-    keyResult.data
-  );
+  const decryptResult = await window.electronAPI.crypto.aes.decrypt({
+    encrypted: encryptedEntry.encrypted_content,
+    iv: encryptedEntry.iv,
+    authTag: encryptedEntry.auth_tag,
+  });
 
   if (!decryptResult.success || !decryptResult.data) {
     throw new Error(decryptResult.error || 'Decryption failed');
@@ -68,6 +52,7 @@ export async function decryptEntry(encryptedEntry: EncryptedEntry): Promise<Entr
     updated_at: encryptedEntry.updated_at,
     device_id: encryptedEntry.device_id,
     embedding: null,
+    synced_at: null,
   };
 }
 

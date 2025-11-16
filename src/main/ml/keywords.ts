@@ -74,7 +74,7 @@ export function extractKeywords(content: string, limit: number = 20): KeywordRes
 
   return {
     keywords: sortedKeywords,
-    topics: [...new Set(topics)].slice(0, 10),
-    verbs: [...new Set(verbs)].slice(0, 10)
+    topics: [...new Set(topics)].slice(0, 10) as string[],
+    verbs: [...new Set(verbs)].slice(0, 10) as string[]
   }
 }

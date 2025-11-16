@@ -1,4 +1,3 @@
-import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { format } from 'date-fns'
 
@@ -58,7 +57,6 @@ export function SentimentTrendChart({ data }: SentimentTrendChartProps) {
         <div className="flex items-end justify-between gap-1" style={{ height: chartHeight }}>
           {sortedData.map((item, index) => {
             const barHeight = maxSentiment > 0 ? Math.abs(item.sentiment / maxSentiment) * (chartHeight - 20) : 0
-            const isPositive = item.sentiment >= 0
 
             return (
               <div

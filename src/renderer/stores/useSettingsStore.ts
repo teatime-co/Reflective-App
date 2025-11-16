@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import type { AppSettings } from '../../types/settings';
-import { PrivacyTier } from '../../types/settings';
 
 interface SettingsStore {
   settings: AppSettings | null;

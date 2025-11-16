@@ -1,12 +1,6 @@
 import { create } from 'zustand';
 import type { SyncQueueItem } from '../../types/database';
 
-interface SyncStatus {
-  pending: number;
-  failed: number;
-  total: number;
-}
-
 interface SyncStore {
   syncQueue: SyncQueueItem[];
   isSyncing: boolean;
@@ -18,7 +12,7 @@ interface SyncStore {
   enqueueSyncOperation: (payload: {
     operation: 'CREATE' | 'UPDATE' | 'DELETE';
     tableName: string;
-    recordId: number;
+    recordId: string;
     data?: Record<string, unknown>;
   }) => Promise<number>;
 
@@ -112,7 +106,7 @@ export const useSyncStore = create<SyncStore>((set, get) => ({
       const result = await window.electronAPI.sync.getStatus();
 
       if (result.success && result.data?.status) {
-        const { pending, failed, total } = result.data.status;
+        const { pending, failed } = result.data.status;
         set({
           pendingCount: pending,
           failedCount: failed,

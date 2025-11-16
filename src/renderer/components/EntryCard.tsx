@@ -1,4 +1,3 @@
-import React from 'react';
 import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { TagBadge } from './TagBadge';
@@ -12,7 +11,7 @@ interface EntryCardProps {
   isVisited?: boolean;
 }
 
-export function EntryCard({ entry, tags = [], onClick, isVisited = false }: EntryCardProps) {
+export function EntryCard({ entry, tags = [], onClick }: EntryCardProps) {
   const stripHtml = (html: string) => {
     const tmp = document.createElement('div');
     tmp.innerHTML = html;

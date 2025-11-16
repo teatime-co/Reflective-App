@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Tag, NewTag, EntryTag } from '../../types/database';
+import type { Tag, NewTag } from '../../types/database';
 
 interface TagsState {
   tags: Tag[];

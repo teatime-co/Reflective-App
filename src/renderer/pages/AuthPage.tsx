@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LoginForm } from '../components/auth/LoginForm';
 import { RegisterForm } from '../components/auth/RegisterForm';
-import { Button } from '../components/ui/button';
 
 export function AuthPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login');

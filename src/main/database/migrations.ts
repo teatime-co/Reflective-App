@@ -11,7 +11,7 @@ const migrations: Migration[] = [
   {
     version: 1,
     name: 'initial_schema',
-    up: (db) => {
+    up: (_db) => {
       console.log('Migration 1: Initial schema already applied via schema.sql');
     },
   },

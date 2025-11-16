@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSyncStore } from '../stores/useSyncStore';
 import { useConflictsStore } from '../stores/useConflictsStore';
@@ -79,7 +79,7 @@ export function SyncIndicator() {
     return <Cloud className="h-4 w-4 text-blue-500" />;
   };
 
-  const getSyncStatus = () => {
+  const getSyncStatusText = () => {
     if (isSyncing) return 'Syncing...';
     if (error) {
       if (error.includes('AUTH_REQUIRED')) return 'Auth required';
@@ -96,7 +96,7 @@ export function SyncIndicator() {
     <div className="flex items-center gap-3 px-3 py-1.5 border-t">
       <div className="flex items-center gap-2 text-sm">
         {getSyncIcon()}
-        <span className="text-gray-700">{getSyncStatus()}</span>
+        <span className="text-gray-700">{getSyncStatusText()}</span>
       </div>
 
       {pendingCount > 0 && (

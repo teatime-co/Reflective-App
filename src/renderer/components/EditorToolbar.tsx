@@ -1,4 +1,3 @@
-import React from 'react';
 import { type Editor } from '@tiptap/react';
 import { Button } from './ui/button';
 import {

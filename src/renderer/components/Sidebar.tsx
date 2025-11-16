@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { ScrollArea } from './ui/scroll-area';
 import { Separator } from './ui/separator';

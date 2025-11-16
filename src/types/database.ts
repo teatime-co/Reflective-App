@@ -1,7 +1,7 @@
 export interface Entry {
   id: string;
   content: string;
-  embedding: Buffer | null;
+  embedding: Buffer | Uint8Array | null;
   created_at: number;
   updated_at: number;
   word_count: number;
@@ -54,6 +54,7 @@ export interface NewEntry {
 }
 
 export interface UpdateEntry {
+  [key: string]: unknown;
   content?: string;
   embedding?: Uint8Array | Buffer;
   word_count?: number;

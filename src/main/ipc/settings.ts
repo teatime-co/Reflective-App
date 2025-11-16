@@ -1,7 +1,6 @@
 import { ipcMain } from 'electron';
 import { getSettings, updateSettings, resetSettings } from '../settings/settingsStore';
 import type { AppSettings, SettingsUpdateResult } from '../../types/settings';
-import { PrivacyTier } from '../../types/settings';
 import { handleTierChange, TierTransitionProgress } from '../sync/tierTransitions';
 
 export function registerSettingsHandlers(): void {
