@@ -10,6 +10,7 @@ interface ThemesState {
   generateThemes: (entryId: number, content: string) => Promise<void>
   loadThemesByEntry: (entryId: number) => Promise<void>
   getTopThemes: (limit?: number) => Promise<Array<{ theme_name: string; count: number }>>
+  generateThemesForAllEntries: (entries: any[], onProgress?: (current: number, total: number) => void) => Promise<{ success: number; failed: number; errors: Array<{ id: number; error: string }> }>
   clearThemes: () => void
 }
 

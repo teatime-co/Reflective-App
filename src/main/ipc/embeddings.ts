@@ -38,6 +38,38 @@ export function registerEmbeddingsHandlers(): void {
     }
   });
 
+  ipcMain.handle('embeddings:generateBatch', async (_event, texts: string[]) => {
+    try {
+      if (!Array.isArray(texts) || texts.length === 0) {
+        throw new Error('Invalid texts input: must be non-empty array');
+      }
+
+      if (!pythonService) {
+        throw new Error('Python service not initialized. The embedding service failed to start.');
+      }
+
+      if (!pythonService.isServiceReady()) {
+        throw new Error('Python service is not ready. The embedding model may still be loading.');
+      }
+
+      const embeddings = await pythonService.embedBatch(texts);
+
+      return {
+        success: true,
+        data: { embeddings, count: embeddings.length }
+      };
+    } catch (error) {
+      console.error('[IPC] Generate batch embeddings error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[IPC] Error details:', errorMessage);
+
+      return {
+        success: false,
+        error: errorMessage
+      };
+    }
+  });
+
   ipcMain.handle('embeddings:search', async (_event, queryEmbedding: number[], limit: number = 10) => {
     try {
       if (!Array.isArray(queryEmbedding) || queryEmbedding.length !== 384) {
@@ -61,7 +93,7 @@ export function registerEmbeddingsHandlers(): void {
       const entries = db
         .prepare(`SELECT id, content, created_at, updated_at, word_count, sentiment_score FROM entries WHERE id IN (${placeholders})`)
         .all(...entryIds) as Array<{
-          id: number;
+          id: string;
           content: string;
           created_at: number;
           updated_at: number;
@@ -102,9 +134,9 @@ export function registerEmbeddingsHandlers(): void {
     }
   });
 
-  ipcMain.handle('embeddings:addEntry', async (_event, entryId: number, embeddingArray: number[]) => {
+  ipcMain.handle('embeddings:addEntry', async (_event, entryId: string, embeddingArray: number[]) => {
     try {
-      if (!Number.isInteger(entryId) || entryId <= 0) {
+      if (!entryId || typeof entryId !== 'string') {
         throw new Error('Invalid entry ID');
       }
 
@@ -135,7 +167,7 @@ export function registerEmbeddingsHandlers(): void {
 
       const entries = db
         .prepare('SELECT id, embedding FROM entries WHERE embedding IS NOT NULL')
-        .all() as Array<{ id: number; embedding: Buffer }>;
+        .all() as Array<{ id: string; embedding: Buffer }>;
 
       await vectorSearchService.rebuildIndex(entries);
 

@@ -14,8 +14,9 @@ export interface ElectronAPI {
   }
   embeddings: {
     generate: (text: string) => Promise<QueryResult<{ embedding: number[]; dimensions: number }>>
+    generateBatch: (texts: string[]) => Promise<QueryResult<{ embeddings: number[][]; count: number }>>
     search: (queryEmbedding: number[], limit: number) => Promise<QueryResult<SearchResult[]>>
-    addEntry: (entryId: number, embedding: number[]) => Promise<QueryResult<{ entryId: number }>>
+    addEntry: (entryId: string, embedding: number[]) => Promise<QueryResult<{ entryId: string }>>
     rebuild: () => Promise<QueryResult<{ count: number }>>
     getStatus: () => Promise<QueryResult<IndexStatus>>
   }
@@ -42,6 +43,10 @@ export interface ElectronAPI {
     }
     keys: {
       generate: (backendUrl?: string) => Promise<QueryResult<{
+        aesKeyGenerated: boolean
+        hePublicKey: string
+      }>>
+      generateHE: (backendUrl?: string) => Promise<QueryResult<{
         aesKeyGenerated: boolean
         hePublicKey: string
       }>>
@@ -100,6 +105,7 @@ export interface ElectronAPI {
     get: () => Promise<SettingsUpdateResult>
     update: (partial: Partial<AppSettings>) => Promise<SettingsUpdateResult>
     reset: () => Promise<SettingsUpdateResult>
+    onTierTransitionProgress: (callback: (progress: any) => void) => () => void
   }
   auth: {
     setToken: (token: string) => Promise<{ success: boolean; error?: string }>

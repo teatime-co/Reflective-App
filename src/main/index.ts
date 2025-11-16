@@ -13,9 +13,37 @@ import { registerConflictHandlers } from './ipc/conflicts'
 import { initPythonService, pythonService } from './services/pythonService'
 import { initializeSyncService, startSyncWorker, stopSyncWorker } from './sync/syncService'
 import { initializeTierTransitions } from './sync/tierTransitions'
+import { vectorSearchService } from './embeddings/vectorSearch'
 
 let mainWindow: BrowserWindow | null = null
 let isShuttingDown = false
+
+async function rebuildVectorIndexAsync(): Promise<void> {
+  const startTime = Date.now()
+  console.log('[MAIN] Starting automatic vector index rebuild on startup...')
+
+  try {
+    const db = getDatabase()
+    const entries = db
+      .prepare('SELECT id, embedding FROM entries WHERE embedding IS NOT NULL')
+      .all() as Array<{ id: string; embedding: Buffer }>
+
+    console.log(`[MAIN] Found ${entries.length} entries with embeddings in database`)
+
+    if (entries.length === 0) {
+      console.log('[MAIN] No embeddings to load into index')
+      return
+    }
+
+    await vectorSearchService.rebuildIndex(entries)
+
+    const elapsedMs = Date.now() - startTime
+    console.log(`[MAIN] Vector index rebuilt successfully in ${elapsedMs}ms with ${entries.length} entries`)
+  } catch (error) {
+    console.error('[MAIN] Error rebuilding vector index:', error)
+    throw error
+  }
+}
 
 function createWindow() {
   const preloadPath = path.join(__dirname, '../preload/index.mjs')
@@ -72,6 +100,10 @@ app.whenReady().then(async () => {
     console.error('[MAIN] Embedding features will not be available')
     console.error('[MAIN] Error details:', error instanceof Error ? error.message : String(error))
   }
+
+  rebuildVectorIndexAsync().catch(err => {
+    console.error('[MAIN] Failed to rebuild vector index on startup:', err)
+  })
 
   createWindow()
 

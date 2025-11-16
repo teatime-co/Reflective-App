@@ -14,8 +14,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Embeddings IPC handlers
   embeddings: {
     generate: (text: string) => ipcRenderer.invoke('embeddings:generate', text),
+    generateBatch: (texts: string[]) => ipcRenderer.invoke('embeddings:generateBatch', texts),
     search: (queryEmbedding: number[], limit: number) => ipcRenderer.invoke('embeddings:search', queryEmbedding, limit),
-    addEntry: (entryId: number, embedding: number[]) => ipcRenderer.invoke('embeddings:addEntry', entryId, embedding),
+    addEntry: (entryId: string, embedding: number[]) => ipcRenderer.invoke('embeddings:addEntry', entryId, embedding),
     rebuild: () => ipcRenderer.invoke('embeddings:rebuild'),
     getStatus: () => ipcRenderer.invoke('embeddings:getStatus')
   },

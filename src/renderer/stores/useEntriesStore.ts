@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import type { Entry, NewEntry, UpdateEntry } from '../../types/database';
 import { useSyncStore } from './useSyncStore';
-import { PrivacyTier } from '../../types/settings';
 import { v4 as uuidv4 } from 'uuid';
 
 interface EntriesState {
@@ -19,6 +18,7 @@ interface EntriesState {
   setCurrentEntry: (entry: Entry | null) => void;
   generateAndSaveEmbedding: (id: string, content: string) => Promise<boolean>;
   generateEmbeddingsForAllEntries: (onProgress?: (current: number, total: number) => void) => Promise<{ success: number; failed: number; errors: Array<{ id: string; error: string; contentLength: number }> }>;
+  regenerateSentimentForAllEntries: (onProgress?: (current: number, total: number) => void) => Promise<{ success: number; failed: number; skipped: number; errors: Array<{ id: string; error: string }> }>;
 }
 
 export const useEntriesStore = create<EntriesState>((set, get) => ({
@@ -329,40 +329,108 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
     let failed = 0;
     const errors: Array<{ id: string; error: string; contentLength: number }> = [];
 
-    console.log(`[EntriesStore] Generating embeddings for ${entries.length} entries`);
+    console.log(`[EntriesStore] Generating embeddings for ${entries.length} entries using batch API`);
 
-    for (let i = 0; i < entries.length; i++) {
-      const entry = entries[i];
+    const validEntries = entries.filter(entry => {
       const contentLength = entry.content?.length || 0;
-      console.log(`[EntriesStore] Processing entry ${entry.id}, content length: ${contentLength}`);
-
       if (contentLength === 0) {
         console.warn(`[EntriesStore] Skipping entry ${entry.id} - empty content`);
         failed++;
         errors.push({ id: entry.id, error: 'Empty content', contentLength: 0 });
-        if (onProgress) onProgress(i + 1, entries.length);
-        continue;
+        return false;
+      }
+      return true;
+    });
+
+    const batchSize = 10;
+    const totalBatches = Math.ceil(validEntries.length / batchSize);
+
+    for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+      const batchStart = batchIndex * batchSize;
+      const batchEnd = Math.min(batchStart + batchSize, validEntries.length);
+      const batch = validEntries.slice(batchStart, batchEnd);
+
+      console.log(`[EntriesStore] Processing batch ${batchIndex + 1}/${totalBatches} (${batch.length} entries)`);
+
+      const textsToEmbed: string[] = [];
+      const entryMetadata: Array<{ id: string; originalContent: string }> = [];
+
+      for (const entry of batch) {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = entry.content;
+        const plainText = tempDiv.textContent || tempDiv.innerText || '';
+
+        const tagsResult = await window.electronAPI.db.query<Array<{ name: string }>>(
+          `SELECT t.name FROM tags t
+           INNER JOIN entry_tags et ON t.id = et.tag_id
+           WHERE et.entry_id = ?
+           ORDER BY t.name ASC`,
+          [entry.id]
+        );
+
+        let textToEmbed = plainText;
+        if (tagsResult.success && tagsResult.data && tagsResult.data.length > 0) {
+          const tagNames = tagsResult.data.map(t => t.name).join(' ');
+          textToEmbed = `${tagNames}. ${plainText}`;
+        }
+
+        textsToEmbed.push(textToEmbed);
+        entryMetadata.push({ id: entry.id, originalContent: entry.content });
       }
 
       try {
-        const result = await get().generateAndSaveEmbedding(entry.id, entry.content);
-        if (result) {
-          success++;
-          console.log(`[EntriesStore] Generated embedding for entry ${entry.id} (${success}/${entries.length})`);
-        } else {
-          failed++;
-          const storeError = get().error;
-          const errorDetails = storeError || 'generateAndSaveEmbedding returned false (check console for details)';
-          errors.push({ id: entry.id, error: errorDetails, contentLength });
+        const batchResult = await window.electronAPI.embeddings.generateBatch(textsToEmbed);
+
+        if (!batchResult.success || !batchResult.data) {
+          const errorMsg = batchResult.error || 'Batch generation failed';
+          console.error(`[EntriesStore] Batch ${batchIndex + 1} failed: ${errorMsg}`);
+          for (const meta of entryMetadata) {
+            failed++;
+            errors.push({ id: meta.id, error: errorMsg, contentLength: meta.originalContent.length });
+          }
+          if (onProgress) onProgress(batchEnd, validEntries.length);
+          continue;
         }
+
+        const embeddings = batchResult.data.embeddings;
+
+        for (let i = 0; i < embeddings.length; i++) {
+          const embedding = embeddings[i];
+          const meta = entryMetadata[i];
+
+          try {
+            const embeddingBuffer = new Float32Array(embedding).buffer;
+
+            const updateResult = await get().updateEntry(meta.id, {
+              embedding: new Uint8Array(embeddingBuffer)
+            });
+
+            if (updateResult) {
+              await window.electronAPI.embeddings.addEntry(meta.id, embedding);
+              success++;
+              console.log(`[EntriesStore] Generated embedding for entry ${meta.id} (${success}/${validEntries.length})`);
+            } else {
+              failed++;
+              errors.push({ id: meta.id, error: 'Database update failed', contentLength: meta.originalContent.length });
+            }
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            console.error(`[EntriesStore] Failed to save embedding for entry ${meta.id}:`, error);
+            failed++;
+            errors.push({ id: meta.id, error: errorMsg, contentLength: meta.originalContent.length });
+          }
+        }
+
+        if (onProgress) onProgress(batchEnd, validEntries.length);
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        console.error(`[EntriesStore] Failed to generate embedding for entry ${entry.id}:`, error);
-        failed++;
-        errors.push({ id: entry.id, error: errorMsg, contentLength });
+        console.error(`[EntriesStore] Batch ${batchIndex + 1} error:`, error);
+        for (const meta of entryMetadata) {
+          failed++;
+          errors.push({ id: meta.id, error: errorMsg, contentLength: meta.originalContent.length });
+        }
+        if (onProgress) onProgress(batchEnd, validEntries.length);
       }
-
-      if (onProgress) onProgress(i + 1, entries.length);
     }
 
     console.log(`[EntriesStore] Completed: ${success} success, ${failed} failed`);
