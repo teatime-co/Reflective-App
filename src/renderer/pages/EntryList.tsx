@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Button } from '../components/ui/button';
 import { EntryCard } from '../components/EntryCard';
@@ -19,11 +20,23 @@ export function EntryList() {
     loadEntries();
   }, []);
 
+  const rowVirtualizer = useVirtualizer({
+    count: entries.length,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: () => 162,
+    overscan: 5,
+  });
+
+  const virtualItems = rowVirtualizer.getVirtualItems();
+
   useEffect(() => {
-    entries.forEach((entry) => {
-      getTagsForEntry(entry.id);
+    virtualItems.forEach((virtualRow) => {
+      const entry = entries[virtualRow.index];
+      if (entry) {
+        getTagsForEntry(entry.id);
+      }
     });
-  }, [entries]);
+  }, [virtualItems, entries]);
 
   useEffect(() => {
     const savedScroll = sessionStorage.getItem('entryListScroll');
@@ -85,16 +98,40 @@ export function EntryList() {
             </Button>
           </div>
         ) : (
-          <div className="grid gap-4 max-w-4xl mx-auto">
-            {entries.map((entry) => (
-              <EntryCard
-                key={entry.id}
-                entry={entry}
-                tags={entryTags.get(entry.id) || []}
-                onClick={() => handleEntryClick(entry.id)}
-                isVisited={isEntryVisited(entry.id)}
-              />
-            ))}
+          <div className="max-w-4xl mx-auto">
+            <div
+              style={{
+                height: `${rowVirtualizer.getTotalSize()}px`,
+                width: '100%',
+                position: 'relative',
+              }}
+            >
+              {virtualItems.map((virtualRow) => {
+                const entry = entries[virtualRow.index];
+                return (
+                  <div
+                    key={entry.id}
+                    data-index={virtualRow.index}
+                    ref={rowVirtualizer.measureElement}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      transform: `translateY(${virtualRow.start}px)`,
+                      paddingBottom: '1rem',
+                    }}
+                  >
+                    <EntryCard
+                      entry={entry}
+                      tags={entryTags.get(entry.id) || []}
+                      onClick={() => handleEntryClick(entry.id)}
+                      isVisited={isEntryVisited(entry.id)}
+                    />
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </ScrollArea>

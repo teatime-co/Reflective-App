@@ -1,4 +1,3 @@
-import './seal-types';
 import SEAL from 'node-seal';
 import axios from 'axios';
 import path from 'path';

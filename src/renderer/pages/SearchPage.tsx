@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
@@ -60,11 +61,23 @@ export function SearchPage() {
     }
   }, []);
 
+  const rowVirtualizer = useVirtualizer({
+    count: searchResults.length,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: () => 162,
+    overscan: 5,
+  });
+
+  const virtualItems = rowVirtualizer.getVirtualItems();
+
   useEffect(() => {
-    searchResults.forEach((result) => {
-      getTagsForEntry(result.entryId);
+    virtualItems.forEach((virtualRow) => {
+      const result = searchResults[virtualRow.index];
+      if (result) {
+        getTagsForEntry(result.entryId);
+      }
     });
-  }, [searchResults, getTagsForEntry]);
+  }, [virtualItems, searchResults, getTagsForEntry]);
 
   const handleSearch = useCallback((searchQuery: string) => {
     clearTimeout(debounceTimer);
@@ -218,47 +231,67 @@ export function SearchPage() {
         )}
 
         {!isSearching && searchResults.length > 0 && (
-          <div className="space-y-4">
-            {searchResults.map((result) => {
+          <div
+            style={{
+              height: `${rowVirtualizer.getTotalSize()}px`,
+              width: '100%',
+              position: 'relative',
+            }}
+          >
+            {virtualItems.map((virtualRow) => {
+              const result = searchResults[virtualRow.index];
               const plainText = stripHtml(result.preview);
 
               return (
-                <Card
+                <div
                   key={result.entryId}
-                  className={cn(
-                    "cursor-pointer transition-all duration-200",
-                    "hover:shadow-md hover:-translate-y-0.5",
-                    "active:scale-[0.98] active:shadow-sm"
-                  )}
-                  onClick={() => handleResultClick(result.entryId)}
+                  data-index={virtualRow.index}
+                  ref={rowVirtualizer.measureElement}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualRow.start}px)`,
+                    paddingBottom: '1rem',
+                  }}
                 >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-sm text-slate-500">
-                          {format(new Date(result.entry.created_at), 'MMM dd, yyyy • h:mm a')}
-                        </CardTitle>
-                        <Badge variant="secondary" className="text-xs">
-                          {Math.round(result.score * 100)}% match
-                        </Badge>
+                  <Card
+                    className={cn(
+                      "cursor-pointer transition-all duration-200",
+                      "hover:shadow-md hover:-translate-y-0.5",
+                      "active:scale-[0.98] active:shadow-sm"
+                    )}
+                    onClick={() => handleResultClick(result.entryId)}
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="text-sm text-slate-500">
+                            {format(new Date(result.entry.created_at), 'MMM dd, yyyy • h:mm a')}
+                          </CardTitle>
+                          <Badge variant="secondary" className="text-xs">
+                            {Math.round(result.score * 100)}% match
+                          </Badge>
+                        </div>
+                        <span className="text-xs text-slate-400">{result.entry.word_count} words</span>
                       </div>
-                      <span className="text-xs text-slate-400">{result.entry.word_count} words</span>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <p className="text-sm text-slate-700 line-clamp-3">
-                      {plainText}
-                    </p>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <p className="text-sm text-slate-700 line-clamp-3">
+                        {plainText}
+                      </p>
 
-                    {entryTags.get(result.entryId)?.length ? (
-                      <div className="flex flex-wrap gap-2">
-                        {entryTags.get(result.entryId)!.map((tag) => (
-                          <TagBadge key={tag.id} tag={tag} />
-                        ))}
-                      </div>
-                    ) : null}
-                  </CardContent>
-                </Card>
+                      {entryTags.get(result.entryId)?.length ? (
+                        <div className="flex flex-wrap gap-2">
+                          {entryTags.get(result.entryId)!.map((tag) => (
+                            <TagBadge key={tag.id} tag={tag} />
+                          ))}
+                        </div>
+                      ) : null}
+                    </CardContent>
+                  </Card>
+                </div>
               );
             })}
           </div>
