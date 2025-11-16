@@ -70,7 +70,7 @@ export function EntryList() {
       <div className="border-b border-slate-200 p-4 flex items-center justify-between bg-white">
         <h2 className="text-lg font-semibold">Your Entries</h2>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={loadEntries} disabled={isLoading}>
+          <Button variant="outline" onClick={loadEntries} disabled={isLoading}>
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
           <Button onClick={handleNewEntry}>

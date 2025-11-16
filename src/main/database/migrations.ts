@@ -12,7 +12,7 @@ const migrations: Migration[] = [
     version: 1,
     name: 'initial_schema',
     up: (_db) => {
-      console.log('Migration 1: Initial schema already applied via schema.sql');
+      console.log('Migration 1: Initial schema already applied via schema.ts');
     },
   },
   {
@@ -280,6 +280,20 @@ const migrations: Migration[] = [
       db.exec('CREATE INDEX IF NOT EXISTS idx_conflicts_detected_at ON conflicts(detected_at DESC)');
 
       console.log('Conflicts table created successfully');
+    },
+  },
+  {
+    version: 6,
+    name: 'add_embedding_partial_index',
+    up: (db) => {
+      console.log('Migration 6: Adding partial index for embedding existence checks');
+
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_entries_has_embedding
+        ON entries(id) WHERE embedding IS NOT NULL
+      `);
+
+      console.log('Embedding partial index created successfully');
     },
   },
 ];

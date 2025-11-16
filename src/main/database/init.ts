@@ -37,21 +37,22 @@ export function initializeDatabase(): Database.Database {
   db.pragma('foreign_keys = ON');
   db.pragma('synchronous = NORMAL');
 
-  const statements = SCHEMA_SQL
-    .split(';')
-    .map(stmt => stmt.trim())
-    .filter(stmt => stmt.length > 0);
-
-  db.transaction(() => {
-    for (const statement of statements) {
-      db!.exec(statement);
-    }
-  })();
-
   const currentVersion = db.pragma('user_version', { simple: true }) as number;
+
   if (currentVersion === 0) {
-    db.pragma('user_version = 1');
-    console.log('Database schema initialized (version 1)');
+    const statements = SCHEMA_SQL
+      .split(';')
+      .map(stmt => stmt.trim())
+      .filter(stmt => stmt.length > 0);
+
+    db.transaction(() => {
+      for (const statement of statements) {
+        db!.exec(statement);
+      }
+    })();
+
+    db.pragma('user_version = 6');
+    console.log('Database schema initialized (version 6)');
   } else {
     console.log(`Database schema version: ${currentVersion}`);
   }

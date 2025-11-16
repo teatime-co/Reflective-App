@@ -8,12 +8,16 @@ CREATE TABLE IF NOT EXISTS entries (
     word_count INTEGER DEFAULT 0,
     sentiment_score REAL DEFAULT 0.0,
     device_id TEXT,
-    synced_at INTEGER
+    synced_at INTEGER,
+    encrypted_content BLOB,
+    encrypted_metadata BLOB,
+    encryption_version INTEGER DEFAULT 1
 );
 
 CREATE INDEX IF NOT EXISTS idx_entries_created_at ON entries(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_entries_updated_at ON entries(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_entries_synced_at ON entries(synced_at);
+CREATE INDEX IF NOT EXISTS idx_entries_has_embedding ON entries(id) WHERE embedding IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS tags (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,8 +62,30 @@ CREATE TABLE IF NOT EXISTS sync_queue (
     record_id TEXT NOT NULL,
     data TEXT,
     created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-    synced INTEGER DEFAULT 0
+    synced INTEGER DEFAULT 0,
+    retry_count INTEGER DEFAULT 0,
+    failed INTEGER DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_sync_queue_synced ON sync_queue(synced, created_at);
+
+CREATE TABLE IF NOT EXISTS conflicts (
+    id TEXT PRIMARY KEY,
+    log_id TEXT NOT NULL,
+    local_encrypted_content TEXT NOT NULL,
+    local_iv TEXT NOT NULL,
+    local_tag TEXT,
+    local_updated_at INTEGER NOT NULL,
+    local_device_id TEXT NOT NULL,
+    remote_encrypted_content TEXT NOT NULL,
+    remote_iv TEXT NOT NULL,
+    remote_tag TEXT,
+    remote_updated_at INTEGER NOT NULL,
+    remote_device_id TEXT NOT NULL,
+    detected_at INTEGER NOT NULL,
+    FOREIGN KEY (log_id) REFERENCES entries(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_conflicts_log_id ON conflicts(log_id);
+CREATE INDEX IF NOT EXISTS idx_conflicts_detected_at ON conflicts(detected_at DESC);
 `;

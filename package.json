@@ -67,6 +67,7 @@
     ]
   },
   "dependencies": {
+    "@tanstack/react-virtual": "^3.13.12",
     "@tiptap/extension-placeholder": "^2.27.1",
     "@tiptap/react": "^2.27.1",
     "@tiptap/starter-kit": "^2.27.1",
