@@ -1,191 +1,90 @@
-# Reflective Web Client
+# Reflective
 
-A local-first, AI-powered journaling application built with Electron, React, and TypeScript. Features end-to-end encryption, semantic search, and multi-device sync with conflict resolution.
+A privacy-first journaling application that runs entirely on your computer. Write, search, and analyze your thoughts with AI-powered insights while maintaining complete control over your data.
 
 \>> [Live Demo](https://youtu.be/5khCanOZAhw) <<
 
 \>> [Reflective Server](https://github.com/teatime-co/Reflective-Server) <<
 
-## Entries
+## Screenshots
 
+### Entries
 ![Entries](./screens/entries_screen.png)
 
-## Search
-
+### Search
 ![Search](./screens/search_screen.png)
 
-## Insights
-
+### Insights
 ![Insights](./screens/insights_screen.png)
 
-## Settings/Sync
-
+### Settings/Sync
 ![Settings](./screens/settings_screen.png)
 
-## Features
+## The Problem
 
-### Core Journaling
+Traditional journaling apps force an impossible choice: trust cloud providers with your most intimate thoughts or forgo modern conveniences like search, AI insights, and multi-device sync. As data breaches become increasingly common and privacy concerns mount, personal journaling has become a digital minefield.
 
-- **Rich Text Editor**: TipTap-based editor with formatting controls (bold, italic, headings, lists, blockquotes)
-- **Tag System**: Colored tags with management interface and usage tracking
-- **Auto-Save**: 3-second debounced auto-save with change detection
-- **Timeline View**: Chronological list of entries with metadata (date, word count, tags)
-- **Entry Management**: Full CRUD operations with UUID-based entry IDs
-- **Real-Time Word Count**: Updates as you type
+**The core challenge**: How do we provide the convenience and intelligence of modern cloud applications while preserving the privacy and control of local-first software?
 
-### AI & Analytics
+## The Solution
 
-- **Semantic Search**: Vector-based search using All-MiniLM-L6-v2 embeddings (384 dimensions)
-  - HNSW index for fast k-NN search
-  - Background embedding generation
-  - Similarity scoring with percentage match display
-- **Theme Generation**: AI-powered theme detection via Ollama (llama3.2)
-  - 10 predefined themes: Personal Growth, Relationships, Work & Career, Health & Fitness, Mental Health, Travel & Adventure, Creativity, Learning, Gratitude, Challenges & Struggles
-  - Confidence-based filtering (>0.3 threshold)
-  - Bulk generation with progress tracking
-- **Sentiment Analysis**: AFINN-based sentiment scoring (-1 to 1)
-  - Auto-generated on entry save
-  - Color-coded badges in editor
-- **Keyword Extraction**: NLP-based keyword extraction using Compromise
-  - Topic, verb, and noun extraction
-  - Stop word filtering
-- **Insights Dashboard**:
-  - Theme distribution chart
-  - Sentiment trend visualization (last 30 entries)
-  - Top keywords cloud
-  - Writing statistics (total entries, word count, date range)
+Reflective is a **privacy-first journaling app** where your data lives on your computer by default. All AI features—semantic search, theme detection, sentiment analysis—run locally using on-device models, ensuring complete privacy.
 
-### Security & Privacy
+#### Choose Your Privacy Level
 
-- **End-to-End Encryption**:
-  - AES-256-GCM symmetric encryption for entry content
-  - CKKS homomorphic encryption for aggregated metrics
-  - 12-byte random IV generation (never reused)
-  - Authentication tags for tamper detection
-- **OS Keychain Integration**: Secure key storage via keytar (macOS Keychain)
-- **Privacy Tiers**: Three modes for data control
-  - **LOCAL_ONLY**: All data stays on device, no sync
-  - **ANALYTICS_SYNC**: Encrypted metrics only (word count, sentiment, themes)
-  - **FULL_SYNC**: Full encrypted content + embeddings for multi-device access
-- **Authentication**: JWT token-based auth with secure token storage
-- **SQL Injection Prevention**: Prepared statements and input validation on all database operations
+| Privacy Tier | What Syncs | Best For |
+|-------------|------------|----------|
+| **LOCAL_ONLY** | Nothing | Maximum privacy, single device |
+| **ANALYTICS_SYNC** | Encrypted metrics only | Cross-device insights, content stays local |
+| **FULL_SYNC** | Encrypted entries | Multi-device access with zero-knowledge sync |
 
-### Sync & Conflict Resolution
+**Your keys, your data**: Even with full sync enabled, your encryption keys are stored in your operating system's secure keychain and never leave your device. The server stores only encrypted blobs it cannot read.
 
-- **Multi-Device Sync**: Background sync queue with 30-second intervals
-- **Retry Logic**: Exponential backoff (1s, 2s, 4s) with max 3 retry attempts
-- **Conflict Detection**: HTTP 409 response detection from backend
-- **Conflict Resolution UI**:
-  - Side-by-side diff view with word-level highlighting
-  - Three resolution strategies: Keep local, Keep remote, Merge manually
-  - Metadata comparison (timestamp, word count, device ID)
-  - Real-time conflict count badges
-- **Sync Status Monitoring**:
-  - Visual status indicators (idle/syncing/error/success)
-  - Pending and failed operation counters
-  - Last sync time display
-  - Manual sync trigger
-- **Privacy-Aware**: Sync enforcement based on privacy tier
+## Core Features
 
-## Privacy Tiers
+### Journaling Experience
+- **Rich Text Editor** with formatting controls and auto-save
+- **Tag System** with colored tags and organization
+- **Timeline View** showing all entries chronologically
+- **Real-Time Word Count** and writing statistics
 
-Reflective offers three privacy modes to control how your data is stored and synced:
+### AI-Powered Intelligence
+- **Semantic Search**: Find entries by meaning, not just keywords
+- **Theme Detection**: Automatic classification across 10 life categories (Personal Growth, Relationships, Work & Career, Mental Health, and more)
+- **Sentiment Analysis**: Track emotional patterns over time
+- **Keyword Extraction**: Discover important topics without manual tagging
+- **Insights Dashboard**: Visualize theme distribution, sentiment trends, and writing patterns
 
-| Tier | Description | Data Synced | Use Case |
-|------|-------------|-------------|----------|
-| **LOCAL_ONLY** | All data stays on your device | None | Maximum privacy, single device |
-| **ANALYTICS_SYNC** | Encrypted metrics only | Word count, sentiment scores, themes | Insights across devices, content stays local |
-| **FULL_SYNC** | Full encrypted content | All encrypted entries + embeddings | Multi-device access, cloud backup |
+### Privacy & Security
+- **End-to-End Encryption** using AES-256-GCM
+- **Homomorphic Encryption** for privacy-preserving analytics
+- **OS Keychain Integration** for secure key storage
+- **Zero-Knowledge Architecture** - the server never sees your encryption keys
+- **Progressive Privacy Tiers** - you control what data leaves your device
 
-Tier transitions automatically migrate data (e.g., downgrading from FULL_SYNC to ANALYTICS_SYNC deletes encrypted content from server).
+### Multi-Device Sync
+- **Conflict Resolution** with side-by-side diff view
+- **Visual Comparison Tools** for merging changes
+- **Sync Status Monitoring** with clear indicators
+- **Privacy-Aware Syncing** based on your chosen tier
 
-## Technical Stack
+## Technology Overview
 
-### Core Technologies
-- **Electron** 33.4.11 - Cross-platform desktop application framework
-- **React** 18.3.1 - UI framework
-- **TypeScript** 5.9.3 - Type-safe development
-- **Vite** 5.4.21 + electron-vite 2.3.0 - Fast build tooling
-- **Tailwind CSS** 3.4.18 - Utility-first styling
-- **Zustand** 5.0.8 - State management
+Built with **Electron**, **React**, and **TypeScript**, Reflective uses:
+- Local **SQLite database** for offline-capable storage
+- **Python service** for AI embeddings (All-MiniLM-L6-v2)
+- **Ollama** for local theme generation (llama3.2)
+- **OS keychain** for secure encryption key storage
 
-### Database & Storage
-- **better-sqlite3** 11.10.0 - Synchronous SQLite bindings
-- **electron-store** 10.0.0 - Persistent settings storage
-- **Database Location**: `~/Library/Application Support/reflective/database.db` (macOS)
+All AI processing happens on your device. No data leaves your computer unless you explicitly enable sync.
 
-### AI & ML Libraries
-- **@xenova/transformers** 2.17.2 - Embedding generation (All-MiniLM-L6-v2)
-- **hnswlib-node** 3.0.0 - Vector index for semantic search
-- **sentiment** 5.0.2 - Sentiment analysis
-- **compromise** 14.14.4 - NLP keyword extraction
-- **Ollama API** - Theme generation via llama3.2 model
-
-### Security & Encryption
-- **keytar** 7.9.0 - OS keychain integration
-- **node-seal** 4.0.0 - CKKS homomorphic encryption
-- **crypto** (Node.js built-in) - AES-256-GCM encryption
-
-### UI Components
-- **TipTap** 2.27.1 - Rich text editor
-- **shadcn/ui** - Component library (Button, Input, Card, Badge, etc.)
-- **React Router** 6.30.1 - Client-side routing
-- **lucide-react** - Icon library
-- **diff** 5.1.0 - Text diffing for conflict resolution
-- **sonner** 1.0.0 - Toast notifications
-
-## Architecture
-
-### Database Schema
-
-7 tables with foreign key constraints and performance indexes:
-
-- **entries**: Journal entries with content, word count, sentiment score, timestamps, encryption metadata
-- **tags**: Tag definitions with name, color, usage tracking
-- **entry_tags**: Many-to-many junction table
-- **themes**: AI-generated themes linked to entries with confidence scores
-- **sync_queue**: Background sync operations with retry tracking
-- **conflicts**: Sync conflicts with encrypted local/remote versions
-
-Schema versioning via migrations (v1-v5) with user_version pragma.
-
-### State Management
-
-9 Zustand stores:
-- `useEntriesStore` - Entry CRUD + embeddings
-- `useTagsStore` - Tag management
-- `useEmbeddingsStore` - Semantic search
-- `useThemesStore` - Theme generation
-- `useSyncStore` - Sync queue operations
-- `useAuthStore` - Authentication state
-- `useConflictsStore` - Conflict resolution
-- `useSettingsStore` - App settings
-- `useUIStore` - UI state (sidebar, visited entries)
-
-### IPC Architecture
-
-Secure Electron IPC with contextIsolation:
-- **Main Process**: Database operations, encryption, sync worker, ML operations
-- **Preload Bridge**: Type-safe IPC methods exposed via `window.electronAPI`
-- **Renderer Process**: React app with API access via preload bridge
-
-IPC namespaces: `db`, `embeddings`, `ml`, `crypto`, `sync`, `auth`, `conflicts`, `settings`
-
-### Encryption Flow
-
-1. **Key Generation**: 32-byte AES key stored in OS keychain
-2. **Encryption**: Content � AES-256-GCM � {encrypted, iv, authTag}
-3. **Storage**: Encrypted data stored in SQLite as BLOB
-4. **Sync**: Encrypted payload sent to backend (never plaintext)
-5. **Decryption**: Retrieve from keychain � decrypt � display
 
 ## Getting Started
 
 ### Prerequisites
-
 - Node.js 18+ and npm
 - macOS 12+ (for OS keychain integration)
-- Ollama (for theme generation) - Install from https://ollama.ai
+- Ollama (for theme generation) - [Install from ollama.ai](https://ollama.ai)
 
 ### Installation
 
@@ -194,41 +93,33 @@ cd reflective-web
 npm install
 ```
 
-Native modules (better-sqlite3, keytar) will be automatically rebuilt for Electron.
-
 ### Setup Ollama
 
 ```bash
-# Install Ollama, then pull the llama3.2 model
 ollama pull llama3.2
 ```
 
 ### Development
 
 ```bash
-# Run in development mode
 npm run dev
 ```
-
-This starts the Electron app with hot module reloading.
 
 ### Build
 
 ```bash
-# Build for production
 npm run build
 ```
 
-Output: `out/main/`, `out/preload/`, `out/renderer/`
+Output will be in `out/main/`, `out/preload/`, `out/renderer/`
 
-### Development Reset & Demo Data
+## Demo Data
 
-For testing and demos, scripts are provided to reset the database with pre-populated data:
+For testing and demonstrations, we provide scripts to populate the application with sample data:
 
-#### Option 1: Local-Only Demo (No Backend)
+### Local-Only Demo
 
 ```bash
-# Reset database and load 35 demo entries locally
 ./scripts/dev-reset.sh
 npm run dev
 
@@ -236,24 +127,16 @@ npm run dev
 node scripts/seed-demo-data.js
 ```
 
-This gives you a fully-featured local journaling app with:
-- 35 diverse journal entries (60-day timeline)
-- 10 pre-tagged categories
-- Pre-generated themes and sentiment scores
-- Ready for semantic search, insights, and analytics
+This creates 35 realistic journal entries across a 60-day timeline with pre-generated themes, tags, and sentiment scores.
 
-**Use this when**: Demonstrating local-first features without backend sync.
+### Synced Demo (with Backend)
 
-#### Option 2: Synced Demo (With Backend)
-
-Prerequisites:
-- Backend server running (`reflective-server`)
-- Test account created (see [reflective-server/README.md](../reflective-server/README.md))
+Requires the backend server running. See [reflective-server/README.md](../reflective-server/README.md) for setup.
 
 ```bash
 # Reset backend first (in reflective-server directory):
 cd ../reflective-server
-python dev_reset.py    # Creates test@example.com account
+python dev_reset.py
 
 # Then reset frontend with auth:
 cd ../reflective-web
@@ -262,80 +145,22 @@ node scripts/seed-demo-data-authed.js
 npm run dev
 ```
 
-This configures:
-- Pre-login as test@example.com
-- Privacy tier set to FULL_SYNC
-- 35 entries ready to sync to backend
-- Automatic sync on app start (30-second cycle)
-
-**Use this when**: Demonstrating multi-device sync, conflict resolution, or privacy tiers.
-
-#### Reset Scripts
-
-- `dev-reset.sh` - Resets local database only
-- `seed-demo-data.js` - Loads demo entries (local-only mode)
-- `seed-demo-data-authed.js` - Loads demo entries + configures auth
-- `dev-reset-synced.sh` - Automated full reset (frontend + backend)
-
-See [scripts/README.md](scripts/README.md) for detailed documentation.
+For more details, see [scripts/README.md](scripts/README.md).
 
 ## Project Structure
 
 ```
 reflective-web/
 ├── src/
-│   ├── main/
-│   │   ├── database/
-│   │   ├── embeddings/
-│   │   ├── crypto/
-│   │   ├── sync/
-│   │   ├── settings/
-│   │   └── ipc/
-│   ├── preload/
-│   ├── renderer/
-│   │   ├── pages/
-│   │   ├── components/
-│   │   ├── stores/
-│   │   ├── api/
-│   │   └── utils/
-│   └── types/
-├── scripts/
-├── electron-vite.config.ts
+│   ├── main/          # Electron main process (database, encryption, sync, AI)
+│   ├── preload/       # Secure IPC bridge
+│   ├── renderer/      # React UI (pages, components, stores)
+│   └── types/         # Shared TypeScript types
+├── python-service/    # FastAPI embedding server
+├── scripts/           # Development and seeding scripts
 └── package.json
 ```
 
-## Backend Integration
+## Documentation
 
-Reflective syncs with a FastAPI backend (reflective-server) for multi-device support:
-
-- **Authentication**: POST `/api/auth/register`, `/api/auth/login`
-- **Sync**: POST `/api/sync/backup`, GET `/api/sync/backups`, DELETE `/api/sync/backup/content`
-- **Conflicts**: GET `/api/sync/conflicts`, POST `/api/sync/conflicts/:id/resolve`
-- **Encryption Context**: GET `/api/encryption/context` (for CKKS parameters)
-
-Backend URL configurable in Settings page (default: `http://localhost:8000`).
-
-## Development Notes
-
-### Security Considerations
-- Never log encryption keys or auth tokens
-- Always use prepared statements for SQL queries
-- Validate all IPC handler inputs
-- Clear sensitive data from memory after use
-- Use OS keychain for persistent key storage
-
-### Performance
-- Embedding generation: ~500ms per entry (background)
-- Theme generation: ~1-3s per entry via Ollama
-- Sentiment analysis: <10ms per entry
-- Keyword extraction: ~50ms per entry
-- Search query: <100ms with HNSW index
-
-### Build Output
-- Main process: ~1.5 MB
-- Renderer process: ~1.1 MB
-- CSS: ~46 KB
-
-## License
-
-Copyright 2025. All rights reserved.
+For detailed technical documentation, architecture diagrams, and implementation details, see [ARCHITECTURE.md](./ARCHITECTURE.md).
