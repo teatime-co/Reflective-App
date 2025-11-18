@@ -66,10 +66,23 @@ This will clear and reload entries, tags, and themes (keeps other tables intact)
 **File:** `seed-data-demo.sql`
 
 **Contents:**
-- 35 diverse journal entries spanning 60 days (Sept 10 - Nov 9)
+- 35 diverse journal entries optimized to showcase streak tracking
 - 10 pre-defined tags with colors
 - 70 pre-generated themes with confidence scores
 - 85+ entry-tag mappings (2-3 tags per entry)
+
+**Streak Pattern:**
+- First 8-day streak (days 42-35 ago)
+- Gap with 5 scattered entries
+- Second 8-day streak (days 23-16 ago)
+- Gap with 5 scattered entries
+- Current 9-day active streak (days 8-0, leading to today)
+
+**Expected Streak Statistics:**
+- Current Streak: 9 days
+- Longest Streak: 9 days
+
+All entries have 50+ words to properly count toward streak tracking (minimum requirement for daily streak credit).
 
 ### Sentiment Distribution
 

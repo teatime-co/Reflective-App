@@ -92,6 +92,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('conflicts:resolve', conflictId, resolution, mergedData),
     getCount: () => ipcRenderer.invoke('conflicts:getCount'),
     delete: (conflictId: string) => ipcRenderer.invoke('conflicts:delete', conflictId)
+  },
+
+  // Streaks IPC handlers
+  streaks: {
+    insert: (period: any) => ipcRenderer.invoke('streaks:insert', period),
+    insertMany: (periods: any[]) => ipcRenderer.invoke('streaks:insertMany', periods),
+    getAll: () => ipcRenderer.invoke('streaks:getAll'),
+    getLongest: () => ipcRenderer.invoke('streaks:getLongest'),
+    clear: () => ipcRenderer.invoke('streaks:clear'),
+    rebuild: (periods: any[]) => ipcRenderer.invoke('streaks:rebuild', periods)
   }
 })
 

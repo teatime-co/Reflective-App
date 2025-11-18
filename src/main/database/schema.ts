@@ -88,4 +88,15 @@ CREATE TABLE IF NOT EXISTS conflicts (
 
 CREATE INDEX IF NOT EXISTS idx_conflicts_log_id ON conflicts(log_id);
 CREATE INDEX IF NOT EXISTS idx_conflicts_detected_at ON conflicts(detected_at DESC);
+
+CREATE TABLE IF NOT EXISTS streaks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    start_date INTEGER NOT NULL,
+    end_date INTEGER NOT NULL,
+    days_count INTEGER NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
+);
+
+CREATE INDEX IF NOT EXISTS idx_streaks_end_date ON streaks(end_date DESC);
+CREATE INDEX IF NOT EXISTS idx_streaks_days_count ON streaks(days_count DESC);
 `;

@@ -10,6 +10,7 @@ import { registerSyncHandlers } from './ipc/sync'
 import { registerSettingsHandlers } from './ipc/settings'
 import { registerAuthHandlers } from './ipc/auth'
 import { registerConflictHandlers } from './ipc/conflicts'
+import { registerStreakHandlers } from './ipc/streaks'
 import { initPythonService, pythonService } from './services/pythonService'
 import { initializeSyncService, startSyncWorker, stopSyncWorker } from './sync/syncService'
 import { initializeTierTransitions } from './sync/tierTransitions'
@@ -84,6 +85,7 @@ app.whenReady().then(async () => {
   registerSettingsHandlers()
   registerAuthHandlers()
   registerConflictHandlers()
+  registerStreakHandlers()
 
   initializeSyncService(db)
   initializeTierTransitions(db)

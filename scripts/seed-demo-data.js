@@ -3,7 +3,13 @@
 /**
  * Seed Demo Data Script
  *
- * Loads the demo seed data into the Reflective database.
+ * Loads 35 diverse journal entries optimized to showcase streak tracking.
+ * Pattern: Multiple streaks with gaps (8-day, 8-day, and 9-day current streak)
+ * Expected Results: Current Streak = 9 days, Longest Streak = 9 days
+ *
+ * All entries have 50+ words to properly count toward streak tracking.
+ * Includes tags and themes for a complete demo experience.
+ *
  * Run this AFTER the app has started at least once to initialize the schema.
  *
  * Usage: node scripts/seed-demo-data.js
