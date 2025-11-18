@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
+import { LoginFormInline } from '../components/auth/LoginFormInline';
+import { RegisterFormInline } from '../components/auth/RegisterFormInline';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import { useAuthStore } from '../stores/useAuthStore';
 import { hasEncryptionKey, generateKeys, generateHEKeys, deleteAllKeys } from '../utils/encryption';
@@ -9,7 +11,7 @@ import { PrivacyTier } from '../../types/settings';
 
 export function SettingsPage() {
   const { settings, loadSettings, updateSetting, isLoading } = useSettingsStore();
-  const { user, logout } = useAuthStore();
+  const { user, logout, isAuthenticated } = useAuthStore();
   const [backendUrl, setBackendUrl] = useState('');
   const [hasKeys, setHasKeys] = useState(false);
   const [isGeneratingKeys, setIsGeneratingKeys] = useState(false);
@@ -20,6 +22,7 @@ export function SettingsPage() {
     total: number;
     operation: string;
   } | null>(null);
+  const [authView, setAuthView] = useState<'login' | 'register'>('login');
 
   useEffect(() => {
     loadSettings();
@@ -244,21 +247,46 @@ export function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Account</CardTitle>
-            <CardDescription>Your account information</CardDescription>
+            <CardTitle>Account & Sync</CardTitle>
+            <CardDescription>
+              {isAuthenticated
+                ? 'Your account information and sync settings'
+                : 'Sign in to enable cloud sync and access your journal from multiple devices'}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Email</label>
-              <p className="text-sm text-slate-600 mt-1">{user?.email || 'Not logged in'}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Display Name</label>
-              <p className="text-sm text-slate-600 mt-1">{user?.display_name || 'N/A'}</p>
-            </div>
-            <Button variant="destructive" onClick={handleLogout}>
-              Logout
-            </Button>
+            {isAuthenticated ? (
+              <>
+                <div>
+                  <label className="text-sm font-medium">Email</label>
+                  <p className="text-sm text-slate-600 mt-1">{user?.email || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Display Name</label>
+                  <p className="text-sm text-slate-600 mt-1">{user?.display_name || 'N/A'}</p>
+                </div>
+                <Button variant="destructive" onClick={handleLogout}>
+                  Logout
+                </Button>
+              </>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-slate-600">
+                  Reflective works fully offline. Sign in only if you want to sync your data across devices.
+                </p>
+                {authView === 'login' ? (
+                  <LoginFormInline
+                    onSuccess={() => {}}
+                    onRegisterClick={() => setAuthView('register')}
+                  />
+                ) : (
+                  <RegisterFormInline
+                    onSuccess={() => {}}
+                    onLoginClick={() => setAuthView('login')}
+                  />
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
