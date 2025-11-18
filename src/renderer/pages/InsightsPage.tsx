@@ -7,6 +7,7 @@ import { SentimentTrendChart } from '../components/SentimentTrendChart'
 import { WritingStats } from '../components/WritingStats'
 import { useEntriesStore } from '../stores/useEntriesStore'
 import { useThemesStore } from '../stores/useThemesStore'
+import { calculateCurrentStreak, calculateLongestStreak, identifyAllStreakPeriods } from '../utils/streakCalculator'
 
 interface ThemeData {
   theme_name: string
@@ -133,7 +134,28 @@ export function InsightsPage() {
       ? { earliest: dates[0], latest: dates[dates.length - 1] }
       : null
 
-    return { totalEntries, totalWords, dateRange }
+    const currentStreak = calculateCurrentStreak(entries)
+    const longestStreak = calculateLongestStreak(entries)
+
+    const allStreakPeriods = identifyAllStreakPeriods(entries)
+
+    let currentStreakStartDate: number | null = null
+    if (currentStreak > 0 && allStreakPeriods.length > 0) {
+      const lastPeriod = allStreakPeriods[allStreakPeriods.length - 1]
+      if (lastPeriod.days_count === currentStreak) {
+        currentStreakStartDate = lastPeriod.start_date
+      }
+    }
+
+    let longestStreakEndDate: number | null = null
+    if (longestStreak > 0 && allStreakPeriods.length > 0) {
+      const longest = allStreakPeriods.reduce((max, period) =>
+        period.days_count > max.days_count ? period : max
+      )
+      longestStreakEndDate = longest.end_date
+    }
+
+    return { totalEntries, totalWords, dateRange, currentStreak, longestStreak, currentStreakStartDate, longestStreakEndDate }
   }
 
   const stats = calculateStats()
@@ -190,6 +212,10 @@ export function InsightsPage() {
             totalEntries={stats.totalEntries}
             totalWords={stats.totalWords}
             dateRange={stats.dateRange}
+            currentStreak={stats.currentStreak}
+            longestStreak={stats.longestStreak}
+            currentStreakStartDate={stats.currentStreakStartDate}
+            longestStreakEndDate={stats.longestStreakEndDate}
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

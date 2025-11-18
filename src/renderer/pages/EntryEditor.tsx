@@ -71,7 +71,7 @@ export function EntryEditor() {
       isInitialLoadRef.current = true;
       getEntry(id);
       getTagsForEntry(id);
-      loadThemesByEntry(Number(id));
+      loadThemesByEntry(id);
     } else {
       currentEntryIdRef.current = null;
       isInitialLoadRef.current = true;
@@ -260,7 +260,7 @@ export function EntryEditor() {
       return;
     }
 
-    await generateThemes(Number(id), currentEntry.content);
+    await generateThemes(id, currentEntry.content);
   };
 
   const currentEntryTags = id ? entryTags.get(id) || [] : [];

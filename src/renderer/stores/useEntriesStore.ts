@@ -4,6 +4,7 @@ import { useSyncStore } from './useSyncStore';
 import { invalidateSearchCache } from './useEmbeddingsStore';
 import { v4 as uuidv4 } from 'uuid';
 import { LRUCache } from '../lib/queryCache';
+import { rebuildStreaksFromEntries } from '../utils/streakUpdater';
 
 const entryCache = new LRUCache<Entry>(50, 5 * 60 * 1000);
 
@@ -113,8 +114,9 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
         if (newEntryResult.success && newEntryResult.data && newEntryResult.data.length > 0) {
           const newEntry = newEntryResult.data[0];
           entryCache.set(newEntry.id, newEntry);
+          const updatedEntries = [newEntry, ...get().entries];
           set((state) => ({
-            entries: [newEntry, ...state.entries],
+            entries: updatedEntries,
             currentEntry: newEntry,
             isLoading: false
           }));
@@ -132,6 +134,10 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
             }
           }).catch(error => {
             console.error('Failed to enqueue CREATE operation:', error);
+          });
+
+          rebuildStreaksFromEntries(updatedEntries).catch(error => {
+            console.error('Failed to rebuild streaks after create:', error);
           });
 
           return newEntry;
@@ -193,10 +199,11 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
 
       if (result.success) {
         entryCache.invalidate(new RegExp(`^${id}$`));
+        const updatedEntries = get().entries.map((e) =>
+          e.id === id ? { ...e, ...updates, updated_at: Date.now() } : e
+        );
         set((state) => ({
-          entries: state.entries.map((e) =>
-            e.id === id ? { ...e, ...updates, updated_at: Date.now() } : e
-          ),
+          entries: updatedEntries,
           currentEntry:
             state.currentEntry?.id === id
               ? { ...state.currentEntry, ...updates, updated_at: Date.now() }
@@ -211,6 +218,10 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
           data: updates
         }).catch(error => {
           console.error('Failed to enqueue UPDATE operation:', error);
+        });
+
+        rebuildStreaksFromEntries(updatedEntries).catch(error => {
+          console.error('Failed to rebuild streaks after update:', error);
         });
 
         return true;
@@ -234,8 +245,9 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
 
       if (result.success) {
         entryCache.invalidate(new RegExp(`^${id}$`));
+        const updatedEntries = get().entries.filter((e) => e.id !== id);
         set((state) => ({
-          entries: state.entries.filter((e) => e.id !== id),
+          entries: updatedEntries,
           currentEntry: state.currentEntry?.id === id ? null : state.currentEntry,
           isLoading: false
         }));
@@ -246,6 +258,10 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
           recordId: id
         }).catch(error => {
           console.error('Failed to enqueue DELETE operation:', error);
+        });
+
+        rebuildStreaksFromEntries(updatedEntries).catch(error => {
+          console.error('Failed to rebuild streaks after delete:', error);
         });
 
         return true;

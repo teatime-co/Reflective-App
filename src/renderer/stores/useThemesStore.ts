@@ -7,10 +7,10 @@ interface ThemesState {
   isGenerating: boolean
   error: string | null
 
-  generateThemes: (entryId: number, content: string) => Promise<void>
-  loadThemesByEntry: (entryId: number) => Promise<void>
+  generateThemes: (entryId: string, content: string) => Promise<void>
+  loadThemesByEntry: (entryId: string) => Promise<void>
   getTopThemes: (limit?: number) => Promise<Array<{ theme_name: string; count: number }>>
-  generateThemesForAllEntries: (entries: any[], onProgress?: (current: number, total: number) => void) => Promise<{ success: number; failed: number; errors: Array<{ id: number; error: string }> }>
+  generateThemesForAllEntries: (entries: any[], onProgress?: (current: number, total: number) => void) => Promise<{ success: number; failed: number; errors: Array<{ id: string; error: string }> }>
   clearThemes: () => void
 }
 
@@ -19,7 +19,7 @@ export const useThemesStore = create<ThemesState>((set, get) => ({
   isGenerating: false,
   error: null,
 
-  generateThemes: async (entryId: number, content: string) => {
+  generateThemes: async (entryId: string, content: string) => {
     set({ isGenerating: true, error: null })
 
     try {
@@ -60,7 +60,7 @@ export const useThemesStore = create<ThemesState>((set, get) => ({
     }
   },
 
-  loadThemesByEntry: async (entryId: number) => {
+  loadThemesByEntry: async (entryId: string) => {
     try {
       const result = await window.electronAPI.db.query<Theme[]>(
         'SELECT * FROM themes WHERE entry_id = ? ORDER BY confidence DESC',
@@ -103,12 +103,12 @@ export const useThemesStore = create<ThemesState>((set, get) => ({
   },
 
   generateThemesForAllEntries: async (
-    entries: Array<{ id: number; content: string }>,
+    entries: Array<{ id: string; content: string }>,
     onProgress?: (current: number, total: number) => void
   ) => {
     let success = 0
     let failed = 0
-    const errors: Array<{ id: number; error: string }> = []
+    const errors: Array<{ id: string; error: string }> = []
 
     console.log(`[ThemesStore] Generating themes for ${entries.length} entries`)
 

@@ -5,9 +5,13 @@ interface WritingStatsProps {
   totalEntries: number
   totalWords: number
   dateRange: { earliest: number; latest: number } | null
+  currentStreak: number
+  longestStreak: number
+  currentStreakStartDate?: number | null
+  longestStreakEndDate?: number | null
 }
 
-export function WritingStats({ totalEntries, totalWords, dateRange }: WritingStatsProps) {
+export function WritingStats({ totalEntries, totalWords, dateRange, currentStreak, longestStreak, currentStreakStartDate, longestStreakEndDate }: WritingStatsProps) {
   const avgWordsPerEntry = totalEntries > 0 ? Math.round(totalWords / totalEntries) : 0
 
   const daysSpan = dateRange
@@ -55,9 +59,20 @@ export function WritingStats({ totalEntries, totalWords, dateRange }: WritingSta
                 <p className="text-sm font-medium">{format(dateRange.latest, 'MMM d, yyyy')}</p>
               </div>
 
-              <div className="space-y-1 col-span-2">
-                <p className="text-sm text-gray-600">Writing Period</p>
-                <p className="text-sm font-medium">{daysSpan} {daysSpan === 1 ? 'day' : 'days'}</p>
+              <div className="space-y-1">
+                <p className="text-sm text-gray-600">Current Streak</p>
+                <p className="text-2xl font-bold">{currentStreak} {currentStreak === 1 ? 'day' : 'days'}</p>
+                {currentStreakStartDate && currentStreak > 0 && (
+                  <p className="text-xs text-gray-500">Started {format(currentStreakStartDate, 'MMM d, yyyy')}</p>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-sm text-gray-600">Longest Streak</p>
+                <p className="text-2xl font-bold">{longestStreak} {longestStreak === 1 ? 'day' : 'days'}</p>
+                {longestStreakEndDate && longestStreak > 0 && (
+                  <p className="text-xs text-gray-500">Ended {format(longestStreakEndDate, 'MMM d, yyyy')}</p>
+                )}
               </div>
             </>
           )}
