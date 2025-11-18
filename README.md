@@ -9,16 +9,16 @@ A privacy-first journaling application that runs entirely on your computer. Writ
 ## Screenshots
 
 ### Entries
-![Entries](./screens/entries_screen.png)
+![Entries](./screens/entries.png)
 
 ### Search
-![Search](./screens/search_screen.png)
+![Search](./screens/search.png)
 
 ### Insights
-![Insights](./screens/insights_screen.png)
+![Insights](./screens/insights.png)
 
 ### Settings/Sync
-![Settings](./screens/settings_screen.png)
+![Settings](./screens/settings.png)
 
 ## The Problem
 
